@@ -1,0 +1,17 @@
+[project]
+name = "toksmith"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Alexey Demyanchuk", email = "demyanchuk.alexey@mh-hannover.de" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "ipykernel>=6.29.5",
+    "regex>=2024.11.6",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
