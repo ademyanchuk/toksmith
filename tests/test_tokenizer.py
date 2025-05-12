@@ -1,5 +1,5 @@
 import pytest
-from toksmith.tokenizer import Tokenizer
+from toksmith.tokenizer import Tokenizer, _merge
 
 @pytest.fixture
 def tok():
@@ -102,3 +102,59 @@ def test_pairs_count_integration(tok, text, expected_pairs):
     pretoks = tok._pretoken_count(text)
     pairs = tok._pairs_count(pretoks)
     assert pairs == expected_pairs
+  
+# test merge
+@pytest.mark.parametrize("seq, pair, new_ix, expected", [
+    # 1) Empty sequence → empty
+    ((), (1, 2), 3, ()),
+    ([], (1, 2), 3, ()),
+
+    # 2) Length 1 sequence → no possible pair
+    ((1,), (1, 2), 3, (1,)),
+    (["a"], ("a","b"), "z", ("a",)),
+
+    # 3) Single exact match → collapse to new_ix
+    ((1, 2), (1, 2), 99, (99,)),
+    (["x","y"], ("x","y"), "z", ("z",)),
+
+    # 4) No match anywhere → identity
+    ((1,2,3), (4,5), 0, (1,2,3)),
+    ((0,0,0), (1,1), 2, (0,0,0)),
+
+    # 5) Multiple non‐overlapping matches
+    ((1,2,1,2), (1,2), 9, (9,9)),
+    ("abab", ("a","b"), "Z", ("Z","Z")),
+
+    # 6) Overlapping matches: (x,x,x) with pair (x,x)
+    ((7,7,7), (7,7), 0, (0,7)),
+    ((42,42,42,42), (42,42), -1, (-1,-1)),
+
+    # 7) Adjacent but non‐overlapping: (a,b,a)
+    (("a","b","a"), ("a","b"), "X", ("X","a")),
+])
+def test_merge_various(seq, pair, new_ix, expected):
+    """
+    Defensive tests for:
+      - empty inputs
+      - no matches
+      - single & multiple matches
+      - overlapping & adjacent cases
+      - mixed types & edge values
+    """
+    result = _merge(seq, pair, new_ix)
+    assert isinstance(result, tuple), "Should always return a tuple"
+    assert result == expected
+
+def test_merge_original_unchanged():
+    """Ensure original sequence is not mutated if it's a list."""
+    orig = [1,2,3,4]
+    seq_copy = orig.copy()
+    _ = _merge(orig, (2,3), 99)
+    assert orig == seq_copy, "Input sequence must not be modified in place"
+
+def test_invalid_pair_length():
+    """Passing a pair that isn’t of length 2 should raise."""
+    with pytest.raises(ValueError):
+        _merge((1,2,3), (1,), 0) # type: ignore
+    with pytest.raises(ValueError):
+        _merge((1,2,3), (1,2,3), 0) # type: ignore
