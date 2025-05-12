@@ -3,10 +3,32 @@ from typing import Sequence, Tuple, TypeVar
 
 import regex as re
 
+T = TypeVar("T")
+
 # from here: https://github.com/openai/tiktoken/pull/234/files
 GPT2_SPLIT_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
+# helpers ============================
 
+def _merge(seq: Sequence[T], pair: Tuple[T,T], new_ix: T) -> Tuple[T, ...]:
+  """Given a sequence of elements produces a new
+  sequence with all non-overlapping occurrences of `pair`
+  replaced by `new_ix`"""
+  if not isinstance(pair, tuple) or len(pair) != 2:
+    raise ValueError("`pair` must be a 2-tuple")
+  new_seq = []
+  i = 0
+  while i < len(seq):
+    # check in range and if match
+    if i+1 < len(seq) and (seq[i], seq[i+1]) == pair:
+      new_seq.append(new_ix)
+      i += 2 # correct step
+    else:
+      new_seq.append(seq[i]) # only current position
+      i += 1
+  return tuple(new_seq)
+
+# tokenizer code ================================
 class Tokenizer():
   """GPT2-like tokenizer, using BPE algorithm"""
 
