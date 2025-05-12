@@ -34,6 +34,8 @@ class Tokenizer():
 
   def __init__(self) -> None:
     self.pattern = re.compile(GPT2_SPLIT_PAT)
+    self.vocab = {i: int.to_bytes(i) for i in range(256)}
+    self.merges = []
 
   def _pretoken_count(self, text: str) -> dict[tuple[int, ...], int]:
     """Pre-tokenizes the text and produces the counter
@@ -54,3 +56,45 @@ class Tokenizer():
       for p in zip(pt, pt[1:]):
         pair_counts[p] = pair_counts.get(p, 0) + cnt
     return pair_counts
+
+  def train(self, text: str, vocab_size: int, special_tokens: list[str]):
+    """Trains a BPE tokenizer on provided text, updates tokenizer state
+
+    Args:
+        text (str): unicode text
+        vocab_size (int): maximum final vocabulary size (includes 256 init bytes
+        and special tokens)
+        special_tokens (list[str]): list of special tokens, i.e. <|endoftext|>
+
+    Raises:
+        ValueError: if vocab_size < # init bytes + # special tokens
+    """
+    if vocab_size < 256 + len(special_tokens):
+      raise ValueError(f"vocab_size must be > {256 + len(special_tokens)}")
+    if special_tokens:
+      raise NotImplementedError
+    pretokens = self._pretoken_count(text)
+    ix = 256
+    num_iters = vocab_size - ix # TODO: handle special tokens
+    for i in range(num_iters):
+      pair_counts = self._pairs_count(pretokens)
+      if not pair_counts: break # for small text examples with large vocab size
+      # find most frequent pair, ties resolved in lexicographical order
+      top_pair, _ = max(pair_counts.items(), key=lambda it: [it[1], it[0]])
+      # merge
+      new_ix = ix + i
+      # Each merge introduces a new token (pair → new token) that wasn’t in the vocabulary before
+      # Pretoken keys are sequences of current tokens.
+      # Until you merge ('t', 'e') into 'te', there's no way 'te' appears as a unit inside any key
+      # Only keys that contain the exact pair ('t', 'e') in adjacent positions will be modified.
+      # The output of merge() depends deterministically on the input key.
+      # Therefore, at most one original key can produce any given new_pt in the merge step.
+      for pt in list(pretokens): # static copy of keys (prevents RuntimeError if we iterate original dict)
+        new_pt = _merge(pt, top_pair, new_ix)
+        if new_pt != pt: # update only if we merged new index
+        # even though we proved it can't happen (see above), we want this assertions and perhaps test against it
+        # so we are sure not to mess up with implementation
+          assert new_pt not in pretokens, f"Collision: {new_pt} already in pretokens"
+          pretokens[new_pt] = pretokens.pop(pt) #  safe from key collisions under the BPE merge assumptions
+      self.merges.append(top_pair)
+      self.vocab[new_ix] = self.vocab[top_pair[0]] + self.vocab[top_pair[1]]
