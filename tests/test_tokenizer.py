@@ -57,3 +57,26 @@ def test_pretoken_count_unicode(tok, text, expected):
     """
     result = tok._pretoken_count(text)
     assert result == expected
+
+# test _pairs_count
+def test_pairs_count_unit_manual(tok):
+    """
+    Unit-test _pairs_count in isolation:
+      - pretend we have two pretokens: (1,2,3) occurring twice, and (3,4) once
+      - so pairs are:
+           (1,2): 2
+           (2,3): 2
+           (3,4): 1
+    """
+    manual_pretoks = {
+        (1, 2, 3): 2,
+        (3, 4):    1,
+    }
+    expected = {
+        (1, 2): 2,
+        (2, 3): 2,
+        (3, 4): 1,
+    }
+    result = tok._pairs_count(manual_pretoks)
+    assert result == expected
+
