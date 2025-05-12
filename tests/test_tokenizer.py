@@ -1,11 +1,12 @@
 import pytest
-from toksmith.tokenizer import Tokenizer  # ← adjust to your import path
+from toksmith.tokenizer import Tokenizer
 
 @pytest.fixture
 def tok():
     # This will compile GPT2_SPLIT_PAT internally
     return Tokenizer()
 
+# test _pretoken_count function
 @pytest.mark.parametrize("text, expected", [
     # 1) A single two‐byte letter group "hé"
     (
