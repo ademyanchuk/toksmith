@@ -1,4 +1,5 @@
 """BPE Tokenizer Implementation (follows gpt-2 assumptions)"""
+from typing import Sequence, Tuple, TypeVar
 
 import regex as re
 
@@ -12,7 +13,7 @@ class Tokenizer():
   def __init__(self) -> None:
     self.pattern = re.compile(GPT2_SPLIT_PAT)
 
-  def _pretoken_count(self, text):
+  def _pretoken_count(self, text: str) -> dict[tuple[int, ...], int]:
     """Pre-tokenizes the text and produces the counter
     of pre-tokens represented as tuple of utf-8 encoded bytes"""
     pretokens = dict()
