@@ -22,3 +22,13 @@ class Tokenizer():
       pt = tuple(pt.encode('utf-8'))
       pretokens[pt] = pretokens.get(pt, 0) + 1
     return pretokens
+
+  def _pairs_count(self, pretokens: dict[tuple[int, ...], int]) -> dict[tuple[int, int], int]:
+    """Iterates through pre-tokens dict and produces
+    the counter of all sequential pairs of units.
+    Unit is an element of pre-token"""
+    pair_counts = dict()
+    for pt, cnt in pretokens.items():
+      for p in zip(pt, pt[1:]):
+        pair_counts[p] = pair_counts.get(p, 0) + cnt
+    return pair_counts
