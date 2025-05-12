@@ -80,3 +80,25 @@ def test_pairs_count_unit_manual(tok):
     result = tok._pairs_count(manual_pretoks)
     assert result == expected
 
+# test _pretoken_count integration with _pairs_count
+@pytest.mark.parametrize("text, expected_pairs", [
+    # "abc" in UTF-8 is b'abc' → bytes [97,98,99]
+    # so zip → (97,98),(98,99), each once
+    ("abc", {
+        (97, 98): 1,
+        (98, 99): 1,
+    }),
+    # "éé" in UTF-8 is b'\xc3\xa9\xc3\xa9' → [195,169,195,169]
+    # so zip → (195,169),(169,195),(195,169) → counts 2,1
+    ("éé", {
+        (195, 169): 2,
+        (169, 195): 1,
+    }),
+])
+def test_pairs_count_integration(tok, text, expected_pairs):
+    """
+    Integration test: run the real regex→pretoks→pairs pipeline.
+    """
+    pretoks = tok._pretoken_count(text)
+    pairs = tok._pairs_count(pretoks)
+    assert pairs == expected_pairs
