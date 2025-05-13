@@ -11,12 +11,6 @@ def test_train_raises_on_small_vocab():
         tok.train("whatever", 255, [])
     assert "vocab_size must be >" in str(ei.value)
 
-def test_train_raises_on_special_tokens():
-    tok = Tokenizer()
-    # special_tokens not yet supported
-    with pytest.raises(NotImplementedError):
-        tok.train("any text", 300, ["<|endoftext|>"])
-
 def test_train_single_merge(monkeypatch):
     """Stub out pretoken & pair counts so exactly one merge occurs."""
     # 1) Prepare a fresh Tokenizer with clean state
@@ -85,3 +79,46 @@ def test_train_on_wiki_example():
     assert tok.vocab[256] == b"aa"
     assert tok.vocab[257] == b"aaa"
     assert tok.vocab[258] == b"aaab"
+
+def test_train_strips_and_merges_with_special_token():
+    """
+    Given text="ab<tok>ab" and special_tokens=["<tok>"], with vocab_size=258:
+     - We reserve 256 base bytes, 1 merge, 1 special token.
+     - After stripping <tok>, text → "abab", so the single most-frequent pair is ("a","b").
+     - We expect one merge: ("a","b") → idx=256, and then special token at idx=257.
+    """
+    text = "ab<tok>ab"
+    special = ["<tok>"]
+    vocab_size = 256 + 1 + len(special)  # one merge + one special token
+
+    tok = Tokenizer()
+    # run training
+    tok.train(text, vocab_size=vocab_size, special_tokens=special)
+
+    # 1 merge only, on ("a","b")
+    assert tok.merges == [(ord("a"), ord("b"))]
+
+    # vocab[256] == b"ab"
+    assert tok.vocab[256] == b"ab"
+    # special token appended at 257
+    assert tok.vocab[257] == b"<tok>"
+
+def test_merges_equal_for_clean_and_special_text():
+    """
+    The merge sequence on "abab" (no special tokens) should match
+    the merge sequence on "ab<tok>ab" when stripping <tok>,
+    as long as we reserve the same vocab slots.
+    """
+    clean = "abab"
+    noisy = "ab<tok>ab"
+    special = ["<tok>"]
+    # both will do exactly one merge
+
+    t1 = Tokenizer()
+    t1.train(clean,   vocab_size=256 + 1, special_tokens=[])
+    t2 = Tokenizer()
+    t2.train(noisy,   vocab_size=256 + 1 + len(special), special_tokens=special)
+
+    # The _only_ difference should be that t2 has the special token
+    assert t1.merges == t2.merges
+    assert t1.vocab[256] == t2.vocab[256]
