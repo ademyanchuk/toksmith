@@ -57,32 +57,39 @@ class Tokenizer():
         pair_counts[p] = pair_counts.get(p, 0) + cnt
     return pair_counts
 
-  def train(self, text: str, vocab_size: int, special_tokens: list[str]):
+  def train(self, text: str, vocab_size: int, special_tokens: list[str]) -> None:
     """Trains a BPE tokenizer on provided text, updates tokenizer state
+    Note: special token occurrences will be stripped off from the text before
+    training
 
     Args:
         text (str): unicode text
-        vocab_size (int): maximum final vocabulary size (includes 256 init bytes
-        and special tokens)
+        vocab_size (int): total size after training (== 256 + #merges + #special_tokens)
         special_tokens (list[str]): list of special tokens, i.e. <|endoftext|>
 
     Raises:
         ValueError: if vocab_size < # init bytes + # special tokens
     """
-    if vocab_size < 256 + len(special_tokens):
-      raise ValueError(f"vocab_size must be > {256 + len(special_tokens)}")
+    min_size = 256 + len(special_tokens)
+    if vocab_size < min_size:
+      raise ValueError(f"vocab_size must be >= {min_size}")
     if special_tokens:
-      raise NotImplementedError
+      delim = "|".join(map(re.escape, special_tokens))
+      # we strip off special tokens and join back right away
+      # we substitute special token with one white space
+      # to ensure we dont accidentally smash tokens together
+      # might add multiprocessing for large texts and do _pretoken_count
+      # in parallel
+      text = re.sub(f"(?:{delim})+", " ", text)
     pretokens = self._pretoken_count(text)
     ix = 256
-    num_iters = vocab_size - ix # TODO: handle special tokens
-    for i in range(num_iters):
+    num_iters = vocab_size - min_size # keep vocab space for special tokens
+    for _ in range(num_iters):
       pair_counts = self._pairs_count(pretokens)
       if not pair_counts: break # for small text examples with large vocab size
       # find most frequent pair, ties resolved in lexicographical order
       top_pair, _ = max(pair_counts.items(), key=lambda it: [it[1], it[0]])
       # merge
-      new_ix = ix + i
       # Each merge introduces a new token (pair → new token) that wasn’t in the vocabulary before
       # Pretoken keys are sequences of current tokens.
       # Until you merge ('t', 'e') into 'te', there's no way 'te' appears as a unit inside any key
@@ -90,11 +97,17 @@ class Tokenizer():
       # The output of merge() depends deterministically on the input key.
       # Therefore, at most one original key can produce any given new_pt in the merge step.
       for pt in list(pretokens): # static copy of keys (prevents RuntimeError if we iterate original dict)
-        new_pt = _merge(pt, top_pair, new_ix)
+        new_pt = _merge(pt, top_pair, ix)
         if new_pt != pt: # update only if we merged new index
         # even though we proved it can't happen (see above), we want this assertions and perhaps test against it
         # so we are sure not to mess up with implementation
           assert new_pt not in pretokens, f"Collision: {new_pt} already in pretokens"
           pretokens[new_pt] = pretokens.pop(pt) #  safe from key collisions under the BPE merge assumptions
+      # updata tokenizer state
       self.merges.append(top_pair)
-      self.vocab[new_ix] = self.vocab[top_pair[0]] + self.vocab[top_pair[1]]
+      self.vocab[ix] = self.vocab[top_pair[0]] + self.vocab[top_pair[1]]
+      # increment index
+      ix += 1
+    # finished training, let't add special tokens to vocab
+    for i, s_tok in enumerate(special_tokens, ix):
+      self.vocab[i] = bytes(s_tok, encoding="utf-8")
