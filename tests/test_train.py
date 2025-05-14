@@ -122,3 +122,31 @@ def test_merges_equal_for_clean_and_special_text():
     # The _only_ difference should be that t2 has the special token
     assert t1.merges == t2.merges
     assert t1.vocab[256] == t2.vocab[256]
+
+def test_train_resets_previous_state():
+    """
+    Ensure that train() always clears self.merges and self.vocab back to
+    the clean 0–255 byte vocab before doing any new merges.
+    """
+    tok = Tokenizer()
+
+    # 1) Corrupt the state on purpose
+    tok.merges = [(1,2), (3,4)]
+    tok.vocab = {999: b"XXX"}  # bogus entry
+
+    # 2) Run train on a simple example that will do exactly one merge:
+    #    text="abab" => one merge ("a","b") => idx=256
+    tok.train("abab", vocab_size=256 + 1, special_tokens=[])
+
+    # 3) After train, old merges must be gone
+    assert tok.merges == [(ord("a"), ord("b"))]
+
+    # 4) And the bogus vocab entry must have been cleared
+    assert 999 not in tok.vocab
+
+    # 5) The vocab must at least contain the 0–255 byte entries
+    for i in range(256):
+        assert tok.vocab[i] == bytes([i])
+
+    # 6) And the new merge token at index 256
+    assert tok.vocab[256] == b"ab"
