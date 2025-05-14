@@ -34,8 +34,11 @@ class Tokenizer():
 
   def __init__(self) -> None:
     self.pattern = re.compile(GPT2_SPLIT_PAT)
-    self.vocab = {i: int.to_bytes(i) for i in range(256)}
-    self.merges = []
+    self._reset_state()
+
+  def _reset_state(self):
+      self.vocab = {i: int.to_bytes(i) for i in range(256)}
+      self.merges = []
 
   def _pretoken_count(self, text: str) -> dict[tuple[int, ...], int]:
     """Pre-tokenizes the text and produces the counter
@@ -59,6 +62,10 @@ class Tokenizer():
 
   def train(self, text: str, vocab_size: int, special_tokens: list[str]) -> None:
     """Trains a BPE tokenizer on provided text, updates tokenizer state
+
+    Any existing merges or vocab entries beyond the initial 256 byte-vocab
+    will be cleared before training begins.
+
     Note: special token occurrences will be stripped off from the text before
     training
 
@@ -70,6 +77,9 @@ class Tokenizer():
     Raises:
         ValueError: if vocab_size < # init bytes + # special tokens
     """
+    # ensure clean state before training
+    self._reset_state()
+    # start training
     min_size = 256 + len(special_tokens)
     if vocab_size < min_size:
       raise ValueError(f"vocab_size must be >= {min_size}")
