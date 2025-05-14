@@ -10,3 +10,5 @@ wheels/
 .venv
 # Training data
 /data/*
+# test coverage reports
+.coverage
