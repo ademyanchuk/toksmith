@@ -1,4 +1,8 @@
 """BPE Tokenizer Implementation (follows gpt-2 assumptions)"""
+import json
+import os
+from pathlib import Path
+import tempfile
 from typing import Sequence, Tuple, TypeVar
 
 import regex as re
@@ -121,3 +125,93 @@ class Tokenizer():
     # finished training, let't add special tokens to vocab
     for i, s_tok in enumerate(special_tokens, ix):
       self.vocab[i] = bytes(s_tok, encoding="utf-8")
+
+  def save_state(self, prefix: str, folder: str | Path) -> Path:
+      """
+      Save the tokenizer's merges+vocab to `<folder>/<prefix>_tokenizer.json`,
+      creating `folder` if needed.
+      """
+
+      # 1) Resolve the folder path safely
+      folder_path = Path(folder).expanduser().resolve()
+      if folder_path.exists() and not folder_path.is_dir():
+          raise NotADirectoryError(f"{folder!r} exists but is not a directory")
+      folder_path.mkdir(parents=True, exist_ok=True)
+
+      # 2) Sanitize the prefix so it can’t escape the folder
+      #    (e.g. someone passing "../bad" or absolute paths)
+      safe_prefix = Path(prefix).name  # strips any path components
+      filename = f"{safe_prefix}_tokenizer.json"
+      target = folder_path / filename
+
+      # 3) Write atomically (avoid half-written files on crash/interruption)
+      #    – write to a temp file in the same folder
+      #    – then os.replace() to move it into place
+      with tempfile.NamedTemporaryFile(
+          mode="w", 
+          dir=folder_path, 
+          delete=False, 
+          prefix=safe_prefix, 
+          suffix=".json"
+      ) as tf:
+          json.dump({
+              "version": 1,
+              "merges": self.merges,
+              "vocab": {str(k): self.vocab[k].hex() for k in self.vocab}
+          }, tf, indent=2, ensure_ascii=False)
+          tempname = tf.name
+
+      os.replace(tempname, target)  # atomic on most OSes
+
+      return target
+
+  def load_state(self, prefix: str, folder: str | Path) -> None:
+        """
+        Load merges+vocab from `<folder>/<prefix>_tokenizer.json`
+        and overwrite self.merges and self.vocab.
+
+        Args:
+            prefix:       the prefix used when saving (filename = prefix_tokenizer.json)
+            folder:       path to the folder containing that file
+
+        Raises:
+            FileNotFoundError: if the JSON file doesn't exist
+            NotADirectoryError: if `folder` exists but isn't a directory
+            ValueError: if the JSON version is unsupported or malformed
+        """
+        # 1) Resolve folder
+        folder_path = Path(folder).expanduser().resolve()
+        if not folder_path.exists() or not folder_path.is_dir():
+            raise NotADirectoryError(f"{folder!r} is not an existing directory")
+        # 2) Build & check filepath
+        safe_prefix = Path(prefix).name
+        filepath = folder_path / f"{safe_prefix}_tokenizer.json"
+        if not filepath.is_file():
+            raise FileNotFoundError(f"Tokenizer state file not found: {filepath}")
+
+        # 3) Load JSON
+        with open(filepath, "r", encoding="utf-8") as f:
+            data = json.load(f)
+
+        # 4) Version check
+        version = data.get("version")
+        if version != 1:
+            raise ValueError(f"Unsupported tokenizer state version: {version!r}")
+
+        # 5) Restore merges
+        #    Expecting [[i,j], [k,l], …]
+        self.merges = [tuple(pair) for pair in data["merges"]]
+
+        # 6) Restore vocab
+        #    Stored as { "123": "6162", … } where "6162" is hex of b"ab"
+        vocab = {}
+        for tok_id_str, hexstr in data["vocab"].items():
+            try:
+                tok_id = int(tok_id_str)
+            except ValueError:
+                raise ValueError(f"Invalid token ID in state file: {tok_id_str!r}")
+            try:
+                vocab[tok_id] = bytes.fromhex(hexstr)
+            except ValueError:
+                raise ValueError(f"Invalid hex for token {tok_id}: {hexstr!r}")
+        self.vocab = vocab
