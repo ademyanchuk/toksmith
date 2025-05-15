@@ -39,6 +39,8 @@ import logging
 import sys
 from pathlib import Path
 
+from toksmith.tokenizer import Tokenizer
+
 
 def parse_args():
   p = argparse.ArgumentParser(prog='train.py', description='Train a BPE tokenizer on a UTF-8 text file.')
@@ -84,41 +86,43 @@ def quick_utf8_check(path: Path, n_bytes: int = 4096):
   # We don’t need to drain the whole file here—this is just a quick screen.
 
 
-def validate_paths(input_path: Path, output_dir: Path):
+def validate_paths(input_path: Path, output_dir: Path) -> bool:
   # Input file
   if not input_path.is_file():
     logging.error('Input path %r is not a file.', str(input_path))
-    sys.exit(1)
+    return False
 
   # Quick UTF-8 check
   try:
     quick_utf8_check(input_path)
   except Exception as e:
     logging.error('Failed to read %r as UTF-8: %s', str(input_path), e)
-    sys.exit(1)
+    return False
 
   # Output directory
   if output_dir.exists():
     if not output_dir.is_dir():
       logging.error('Output path %r exists and is not a directory.', str(output_dir))
-      sys.exit(1)
+      return False
   else:
     try:
       output_dir.mkdir(parents=True, exist_ok=True)
     except Exception as e:
       logging.error('Could not create output directory %r: %s', str(output_dir), e)
-      sys.exit(1)
+      return False
+  return True  # passed all validation steps
 
 
-def main():
-  args = parse_args()
+def run(args: argparse.Namespace) -> int:
+  """Main script logic, refactored into own function for testability"""
   configure_logging(args.verbose, args.quiet)
 
   input_path = Path(args.input).expanduser().resolve()
   output_dir = Path(args.output_dir).expanduser().resolve()
   prefix_name = args.prefix or input_path.stem
 
-  validate_paths(input_path, output_dir)
+  if not validate_paths(input_path, output_dir):
+    return 1
 
   logging.info('Training tokenizer on %r', str(input_path))
   logging.info('Vocab size: %d (reserving %d special tokens)', args.vocab_size, len(args.special_tokens))
@@ -126,19 +130,25 @@ def main():
     logging.info('Special tokens: %s', args.special_tokens)
   logging.debug('Saving to %r with prefix %r', str(output_dir), prefix_name)
 
-  # ---- YOUR TRAINING LOGIC GOES HERE ----
-  # from my_lib.tokenizer import Tokenizer
-  # tok = Tokenizer()
-  # tok.train(
-  #     text=input_path.read_text(encoding="utf-8"),
-  #     vocab_size=args.vocab_size,
-  #     special_tokens=args.special_tokens,
-  #     verbose=(args.verbose >= 2)
-  # )
-  # out_path = tok.save_state(prefix_name, output_dir)
-  # logging.info("Saved tokenizer state to %r", str(out_path))
-  # ---------------------------------------
+  # Read and train
+  text = input_path.read_text(encoding='utf-8')
+  tok = Tokenizer()
+  tok.train(
+    text=text,
+    vocab_size=args.vocab_size,
+    special_tokens=args.special_tokens,
+    verbose=(args.verbose >= 2),
+  )
+  # Save
+  out_path = tok.save_state(prefix_name, output_dir)
+  logging.info('Saved tokenizer state to %r', str(out_path))
+  return 0
+
+
+def main():
+  args = parse_args()
+  return run(args)
 
 
 if __name__ == '__main__':
-  main()
+  sys.exit(main())
