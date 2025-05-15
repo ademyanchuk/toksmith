@@ -24,10 +24,10 @@ dev = [
 ]
 
 [tool.ruff]
-ignore = ["E501"] # long lines don’t trigger warnings
+lint.ignore = ["E501"] # long lines don’t trigger warnings
 indent-width = 2
 line-length = 200
-select = ["E", "F"]
+lint.select = ["E", "F"]
 
 [tool.ruff.format]
 exclude = ["generated"]
