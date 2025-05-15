@@ -33,3 +33,6 @@ lint.select = ["E", "F"]
 exclude = ["generated"]
 indent-style = "space"
 quote-style = "single"
+
+[tool.pytest.ini_options]
+addopts = "--cov src/ --cov-report term-missing"
