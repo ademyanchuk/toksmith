@@ -1,6 +1,7 @@
 """BPE Tokenizer Implementation (follows gpt-2 assumptions)"""
 
 import json
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -36,6 +37,9 @@ def _merge(seq: Sequence[T], pair: Tuple[T, T], new_ix: T) -> Tuple[T, ...]:
 
 
 # tokenizer code ================================
+logger = logging.getLogger(__name__)
+
+
 class Tokenizer:
   """GPT2-like tokenizer, using BPE algorithm"""
 
@@ -67,7 +71,13 @@ class Tokenizer:
         pair_counts[p] = pair_counts.get(p, 0) + cnt
     return pair_counts
 
-  def train(self, text: str, vocab_size: int, special_tokens: list[str]) -> None:
+  def train(
+    self,
+    text: str,
+    vocab_size: int,
+    special_tokens: list[str],
+    verbose: bool = False,
+  ) -> None:
     """Trains a BPE tokenizer on provided text, updates tokenizer state
 
     Any existing merges or vocab entries beyond the initial 256 byte-vocab
@@ -124,6 +134,16 @@ class Tokenizer:
       # updata tokenizer state
       self.merges.append(top_pair)
       self.vocab[ix] = self.vocab[top_pair[0]] + self.vocab[top_pair[1]]
+      if verbose:
+        logger.debug(
+          'Merged %d: %r + %d: %r -> %d: %r',
+          top_pair[0],
+          self.vocab[top_pair[0]],
+          top_pair[1],
+          self.vocab[top_pair[1]],
+          ix,
+          self.vocab[ix],
+        )
       # increment index
       ix += 1
     # finished training, let't add special tokens to vocab
