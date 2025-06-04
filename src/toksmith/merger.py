@@ -47,10 +47,10 @@ class FastMerger:
     or later merges) to integer (count)
     """
     self.pretoken_count = pretoken_count
-    self.pair_count, self.pair_to_pretoken_set = _get_pair_stats(pretoken_count)
+    self.pair_count, self.pair_to_pretoken_set = _build_pair_index(pretoken_count)
 
 
-def _get_pair_stats(pretoken_count: dict[tuple[int, ...], int]):
+def _build_pair_index(pretoken_count: dict[tuple[int, ...], int]):
   """
   Given pretoken counter returns 2 dicts:
   - `pair_count` - simple counter of adjacent pairs of tokens

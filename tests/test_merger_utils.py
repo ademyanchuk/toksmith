@@ -2,7 +2,7 @@ import heapq
 
 import pytest
 
-from toksmith.merger import HeapEntry, _get_pair_stats, _process_pretoken
+from toksmith.merger import HeapEntry, _build_pair_index, _process_pretoken
 
 
 # test HeapEntry
@@ -53,7 +53,7 @@ def test_get_pair_stats(pretoken_count, expected):
     - Doesn't produce pair stats for single unit pretoken
     - Produces correct pair stats from valid tiny input
   """
-  result = _get_pair_stats(pretoken_count)
+  result = _build_pair_index(pretoken_count)
   assert result == expected
 
 
