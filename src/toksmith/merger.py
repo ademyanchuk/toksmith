@@ -45,7 +45,8 @@ class FastMerger:
     Initializes Merger state required to do merge (train) step.
     Requires caller to provide `pretoken_count` map of integer
     sequence (representing pretoken formed from first 256 utf-8 bytes
-    or later merges) to integer (count)
+    or later merges) to integer (count). Note: Merger takes ownership of
+    the `pretoken_count` dict and mutates it later during training
     """
     self.pretoken_count = pretoken_count
     self.pair_count, self.pair_to_pretoken_set = _build_pair_index(pretoken_count)
