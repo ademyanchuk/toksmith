@@ -2,6 +2,7 @@
 and keeps required state updated. It requires pretoken counter,
 and doesn't do i/o or regex-grouping itself"""
 
+import heapq
 from dataclasses import dataclass, field
 
 
@@ -48,6 +49,8 @@ class FastMerger:
     """
     self.pretoken_count = pretoken_count
     self.pair_count, self.pair_to_pretoken_set = _build_pair_index(pretoken_count)
+    self.pair_heap = [HeapEntry(count, pair) for pair, count in self.pair_count.items()]
+    heapq.heapify(self.pair_heap)
 
 
 def _build_pair_index(pretoken_count: dict[tuple[int, ...], int]):
