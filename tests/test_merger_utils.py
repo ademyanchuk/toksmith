@@ -1,6 +1,34 @@
+import heapq
+
 import pytest
 
-from toksmith.merger import _get_pair_stats, _process_pretoken
+from toksmith.merger import HeapEntry, _get_pair_stats, _process_pretoken
+
+
+# test HeapEntry
+def test_heapentry_orders_by_count():
+  a = HeapEntry(10, (0, 0))
+  b = HeapEntry(5, (9, 9))
+  assert a < b  # because -10 < -5
+
+
+def test_heapentry_tie_breaks_on_pair():
+  # same count, pair (2,3) is lex‐larger than (2,2)
+  c = HeapEntry(7, (2, 3))
+  d = HeapEntry(7, (2, 2))
+  assert c < d  # because reversed (−2,−3) < (−2,−2)
+
+
+def test_heap_pop_sequence():
+  entries = [
+    HeapEntry(3, (1, 1)),
+    HeapEntry(5, (0, 1)),
+    HeapEntry(5, (0, 0)),
+  ]
+  heapq.heapify(entries)
+  popped = [heapq.heappop(entries).original_pair for _ in range(3)]
+  # Should pop 5, (0,1) first (lex-larger), then 5, (0,0), then 3, (1,1)
+  assert popped == [(0, 1), (0, 0), (1, 1)]
 
 
 # test _get_pair_stats
