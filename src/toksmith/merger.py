@@ -27,4 +27,20 @@ def _get_pair_stats(pretoken_count: dict[tuple[int, ...], int]):
   - `pair_count` - simple counter of adjacent pairs of tokens
   - `pair_to_pretoken_set` - adjacent pair of tokens -> set of pretokens containing it
   """
-  raise NotImplementedError
+
+def _process_pretoken(
+  pretoken: tuple[int, ...],
+  freq: int,
+  pair_count: dict[tuple[int, int], int],
+  pair_to_pretoken: dict[tuple[int, int], set[tuple[int, ...]]],
+):
+  """
+  Given sequence `pretoken` and its frequency updates pair counter and pair to
+  pretoken adjacency dict
+  """
+  for pair in zip(pretoken, pretoken[1:]):
+    pair_count[pair] = pair_count.get(pair, 0) + freq
+    if pair in pair_to_pretoken:
+      pair_to_pretoken[pair].add(pretoken)
+    else:
+      pair_to_pretoken[pair] = {pretoken}
