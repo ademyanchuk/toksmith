@@ -2,6 +2,35 @@
 and keeps required state updated. It requires pretoken counter,
 and doesn't do i/o or regex-grouping itself"""
 
+from dataclasses import dataclass, field
+
+
+@dataclass(order=True)
+class HeapEntry:
+  """
+  Helper class to use python min heap as max heap
+  with additional tie-breaking logic for the second field (pair)
+  """
+
+  # sort_index is the FIRST field, so it is compared first in ordering
+  sort_index: int
+
+  # reverse_pair is compared next (if sort_index ties)
+  reverse_pair: tuple[int, int] = field(compare=True)
+
+  # original_pair is not used for comparisons, only stored for retrieval
+  original_pair: tuple[int, int] = field(compare=False)
+
+  def __init__(self, count: int, pair: tuple[int, int]):
+    # We want largest count → smallest sort_index, so store -count
+    object.__setattr__(self, 'sort_index', -count)
+
+    # We want lex‐largest pair to compare “smaller,” so store (-p0, -p1)
+    object.__setattr__(self, 'reverse_pair', (-pair[0], -pair[1]))
+
+    # Keep the original pair around so we can read it back
+    object.__setattr__(self, 'original_pair', pair)
+
 
 class FastMerger:
   """
