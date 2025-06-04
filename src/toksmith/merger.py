@@ -27,6 +27,11 @@ def _get_pair_stats(pretoken_count: dict[tuple[int, ...], int]):
   - `pair_count` - simple counter of adjacent pairs of tokens
   - `pair_to_pretoken_set` - adjacent pair of tokens -> set of pretokens containing it
   """
+  pair_count, pair_to_pretoken_set = dict(), dict()
+  for pt, freq in pretoken_count.items():
+    _process_pretoken(pt, freq, pair_count, pair_to_pretoken_set)
+  return pair_count, pair_to_pretoken_set
+
 
 def _process_pretoken(
   pretoken: tuple[int, ...],
