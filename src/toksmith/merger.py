@@ -84,3 +84,21 @@ class FastMerger:
     self.pair_count, self.pair_to_pretoken_set = _build_pair_index(pretoken_count)
     self.pair_heap = [HeapEntry(count, pair) for pair, count in self.pair_count.items()]
     heapq.heapify(self.pair_heap)
+
+  def _most_common_pair(self):
+    """
+    Helper to pop most frequent pair from Merger heap (destructive for self.pair_heap).
+    It relies on the healthy state of pair counter and heap itself:
+      - we must not be in this function if counter and/or heap are empty
+      - heap entries can be stale due to pushes during merge phase
+      - the final source of truth is pair counter
+    """
+    assert self.pair_count, 'Expected non-empty pair counter'
+    assert self.pair_heap, 'Expected non-empty pair heap'
+    while True:
+      entry = heapq.heappop(self.pair_heap)
+      pair, count = entry.original_pair, -entry.sort_index
+      if self.pair_count.get(pair, 0) == count:
+        break  # fresh entry
+      # else, stale entry, continue
+    return pair, count
