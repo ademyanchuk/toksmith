@@ -1,5 +1,6 @@
 # tests/test_merger_init.py
 import heapq
+from collections import Counter
 
 from toksmith.merger import FastMerger, HeapEntry
 
@@ -20,10 +21,12 @@ def test_fastmerger_init_builds_correct_pair_index():
         next entry is (1,2) with count=2
   """
   # 1) Prepare the initial pretokens
-  pretoken_count = {
-    (1, 2, 3): 2,
-    (2, 3): 1,
-  }
+  pretoken_count = Counter(
+    {
+      (1, 2, 3): 2,
+      (2, 3): 1,
+    }
+  )
 
   # 2) Initialize the FastMerger
   merger = FastMerger(pretoken_count)

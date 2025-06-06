@@ -1,4 +1,5 @@
 import heapq
+from collections import Counter
 
 import pytest
 
@@ -36,13 +37,16 @@ def test_heap_pop_sequence():
   'pretoken_count, expected',
   [
     # 1) Empty pretoken counter
-    (dict(), (dict(), dict())),
+    (Counter(), (Counter(), dict())),
     # 2) Single unit pretoken
-    ({(42,): 2}, (dict(), dict())),
+    (Counter({(42,): 2}), (Counter(), dict())),
     # 3) Happy case
     (
-      {(1, 2, 3): 2, (2, 3): 3},
-      ({(1, 2): 2, (2, 3): 5}, {(1, 2): {(1, 2, 3)}, (2, 3): {(1, 2, 3), (2, 3)}}),
+      Counter({(1, 2, 3): 2, (2, 3): 3}),
+      (
+        Counter({(1, 2): 2, (2, 3): 5}),
+        {(1, 2): {(1, 2, 3)}, (2, 3): {(1, 2, 3), (2, 3)}},
+      ),
     ),
   ],
 )
@@ -64,7 +68,7 @@ def base_state():
   Return a fresh pair_count and pair_to_pretoken with one existing pair (2,3)→count=5
   and that pair mapped to the pretoken (1,2,3).
   """
-  return ({(2, 3): 5}, {(2, 3): {(1, 2, 3)}})
+  return (Counter({(2, 3): 5}), {(2, 3): {(1, 2, 3)}})
 
 
 def test_noop_on_empty_sequence(base_state):
@@ -72,7 +76,7 @@ def test_noop_on_empty_sequence(base_state):
   _process_pretoken((), 42, pair_count, pair_to_pretoken)
 
   # Nothing should have changed
-  assert pair_count == {(2, 3): 5}
+  assert pair_count == Counter({(2, 3): 5})
   assert pair_to_pretoken == {(2, 3): {(1, 2, 3)}}
 
 
@@ -81,7 +85,7 @@ def test_noop_on_singleton_sequence(base_state):
   _process_pretoken((1,), 42, pair_count, pair_to_pretoken)
 
   # Still nothing should have changed
-  assert pair_count == {(2, 3): 5}
+  assert pair_count == Counter({(2, 3): 5})
   assert pair_to_pretoken == {(2, 3): {(1, 2, 3)}}
 
 
@@ -90,7 +94,7 @@ def test_add_length_two_sequence(base_state):
   pair_count, pair_to_pretoken = base_state
   _process_pretoken((1, 2), 3, pair_count, pair_to_pretoken)
 
-  assert pair_count == {(2, 3): 5, (1, 2): 3}
+  assert pair_count == Counter({(2, 3): 5, (1, 2): 3})
   assert pair_to_pretoken == {
     (2, 3): {(1, 2, 3)},
     (1, 2): {(1, 2)},
@@ -104,7 +108,7 @@ def test_extend_existing_pair_and_add_new(base_state):
   pair_count, pair_to_pretoken = base_state
   _process_pretoken((1, 2, 3), 2, pair_count, pair_to_pretoken)
 
-  assert pair_count == {(2, 3): 7, (1, 2): 2}
+  assert pair_count == Counter({(2, 3): 7, (1, 2): 2})
   assert pair_to_pretoken == {
     (2, 3): {(1, 2, 3)},
     (1, 2): {(1, 2, 3)},
@@ -116,7 +120,7 @@ def test_accumulate_multiple_sequences_for_same_pair():
   If (2,3) already appears in two different sequences,
   they should both be recorded in the set.
   """
-  pair_count = {(2, 3): 5}
+  pair_count = Counter({(2, 3): 5})
   pair_to_pretoken = {(2, 3): {(1, 2, 3)}}
 
   # Now add a second sequence (2,3,4) with freq=4
@@ -124,7 +128,7 @@ def test_accumulate_multiple_sequences_for_same_pair():
 
   # (2,3) count: 5 + 4 = 9
   # (3,4) count: new = 4
-  assert pair_count == {(2, 3): 9, (3, 4): 4}
+  assert pair_count == Counter({(2, 3): 9, (3, 4): 4})
   assert pair_to_pretoken == {
     (2, 3): {(1, 2, 3), (2, 3, 4)},
     (3, 4): {(2, 3, 4)},

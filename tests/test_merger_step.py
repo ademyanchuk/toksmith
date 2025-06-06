@@ -1,4 +1,5 @@
 import heapq
+from collections import Counter
 
 from toksmith.merger import FastMerger, HeapEntry
 
@@ -9,10 +10,12 @@ from toksmith.merger import FastMerger, HeapEntry
 def test_most_common_pair_after_init():
   # 1) Build a tiny pretoken_count so that pair_counts are easy to predict
   #    Suppose pretoken_count={(1,2,3):2, (2,3):1} → (2,3) has freq 3, (1,2) has 2.
-  pretoken_count = {
-    (1, 2, 3): 2,
-    (2, 3): 1,
-  }
+  pretoken_count = Counter(
+    {
+      (1, 2, 3): 2,
+      (2, 3): 1,
+    }
+  )
   merger = FastMerger(pretoken_count)
 
   # 2) Now call the helper
@@ -35,11 +38,13 @@ def test_most_common_pair_skips_stale_entries():
   # 1) Bypass __init__ and construct a FastMerger with three pairs:
   #    (10,20) count=5, (30,40) count=5, (50,60) count=3.
   fm = object.__new__(FastMerger)
-  fm.pair_count = {
-    (10, 20): 5,
-    (30, 40): 5,
-    (50, 60): 3,
-  }
+  fm.pair_count = Counter(
+    {
+      (10, 20): 5,
+      (30, 40): 5,
+      (50, 60): 3,
+    }
+  )
   # Build the corresponding heap entries and heapify:
   initial_entries = [
     HeapEntry(5, (10, 20)),  # ties with (30,40) at count=5

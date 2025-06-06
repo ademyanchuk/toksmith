@@ -3,17 +3,23 @@ and keeps required state updated. It requires pretoken counter,
 and doesn't do i/o or regex-grouping itself"""
 
 import heapq
+from collections import Counter
 from dataclasses import dataclass, field
 
 
 ############### utilities ##########################
-def _build_pair_index(pretoken_count: dict[tuple[int, ...], int]):
+def _build_pair_index(
+  pretoken_count: dict[tuple[int, ...], int],
+) -> tuple[
+  Counter[tuple[int, int]],
+  dict[tuple[int, int], set[tuple[int, ...]]],
+]:
   """
   Given pretoken counter returns 2 dicts:
   - `pair_count` - simple counter of adjacent pairs of tokens
   - `pair_to_pretoken_set` - adjacent pair of tokens -> set of pretokens containing it
   """
-  pair_count, pair_to_pretoken_set = dict(), dict()
+  pair_count, pair_to_pretoken_set = Counter(), dict()
   for pt, freq in pretoken_count.items():
     _process_pretoken(pt, freq, pair_count, pair_to_pretoken_set)
   return pair_count, pair_to_pretoken_set
@@ -22,7 +28,7 @@ def _build_pair_index(pretoken_count: dict[tuple[int, ...], int]):
 def _process_pretoken(
   pretoken: tuple[int, ...],
   freq: int,
-  pair_count: dict[tuple[int, int], int],
+  pair_count: Counter[tuple[int, int]],
   pair_to_pretoken: dict[tuple[int, int], set[tuple[int, ...]]],
 ):
   """
@@ -30,7 +36,7 @@ def _process_pretoken(
   pretoken adjacency dict
   """
   for pair in zip(pretoken, pretoken[1:]):
-    pair_count[pair] = pair_count.get(pair, 0) + freq
+    pair_count[pair] += freq
     if pair in pair_to_pretoken:
       pair_to_pretoken[pair].add(pretoken)
     else:
@@ -72,13 +78,16 @@ class FastMerger:
   - catch top pair from max heap in log(n) time
   """
 
-  def __init__(self, pretoken_count: dict[tuple[int, ...], int]):
+  def __init__(self, pretoken_count: Counter[tuple[int, ...]]):
     """
     Initializes Merger state required to do merge (train) step.
     Requires caller to provide `pretoken_count` map of integer
     sequence (representing pretoken formed from first 256 utf-8 bytes
     or later merges) to integer (count). Note: Merger takes ownership of
     the `pretoken_count` dict and mutates it later during training
+
+    Invariants: counters and adjacency dict (pretoken counter, pair counter and
+    pair to pretoken set) are not allowed <= 0 or empty set values
     """
     self.pretoken_count = pretoken_count
     self.pair_count, self.pair_to_pretoken_set = _build_pair_index(pretoken_count)
@@ -98,7 +107,7 @@ class FastMerger:
     while True:
       entry = heapq.heappop(self.pair_heap)
       pair, count = entry.original_pair, -entry.sort_index
-      if self.pair_count.get(pair, 0) == count:
+      if self.pair_count[pair] == count:
         break  # fresh entry
       # else, stale entry, continue
     return pair, count
