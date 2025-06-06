@@ -1,6 +1,8 @@
 import heapq
 from collections import Counter
 
+import pytest
+
 from toksmith.merger import FastMerger, HeapEntry
 
 # test _most_common_pair
@@ -76,3 +78,69 @@ def test_most_common_pair_skips_stale_entries():
   pair3, count3 = fm._most_common_pair()
   assert pair3 == (50, 60)
   assert count3 == 3
+
+
+# test _update_pair helper
+
+
+@pytest.fixture
+def base_count():
+  """Base pretoken count to initialize Merger"""
+  # Effectively pairs being (1,2): 2 and (2,3): 2+3
+  return Counter({(1, 2, 3): 2, (2, 3): 3})
+
+
+def test_update_pair_add_new(base_count):
+  """Test adding state for new pair"""
+  fm = FastMerger(base_count)
+  pair = (256, 1)
+  freq = 4
+  fm._update_pair(pair, freq)
+  # check correct state of pair counter
+  assert fm.pair_count[pair] == freq
+  # check pair heap has corresponding entry
+  assert HeapEntry(freq, pair) in fm.pair_heap
+
+
+def test_update_pair_increment(base_count):
+  """Test existing pair count correctly increments"""
+  fm = FastMerger(base_count)
+  pair = (1, 2)  # exists with count 2
+  freq = 2
+  fm._update_pair(pair, freq)
+  # check that count is adjusted
+  assert fm.pair_count[pair] == freq + 2
+  # check updated entry make it to the heap
+  assert HeapEntry(freq + 2, pair) in fm.pair_heap
+
+
+def test_update_pair_decrement(base_count):
+  """Test existing pair count correctly decrements"""
+  fm = FastMerger(base_count)
+  pair = (2, 3)  # exists with count 5
+  freq = -3
+  fm._update_pair(pair, freq)
+  # check that count is adjusted
+  assert fm.pair_count[pair] == 5 + freq
+  # check entry is in the heap
+  assert HeapEntry(5 + freq, pair) in fm.pair_heap
+
+
+def test_update_pair_decrement_delete(base_count):
+  """Test existing pair decrements and being deleted"""
+  fm = FastMerger(base_count)
+  pair = (1, 2)  # exists with count 2
+  freq = -2
+  fm._update_pair(pair, freq)
+  # check pair is not in the counter
+  assert pair not in fm.pair_count
+  # check stale entry is still in the heap
+  assert HeapEntry(2, pair) in fm.pair_heap
+
+
+def test_update_pair_no_op():
+  """Test with freq==0 does nothing"""
+  fm = FastMerger(Counter())  # just empty for simplicity
+  fm._update_pair((1, 2), 0)
+  assert not fm.pair_count
+  assert not fm.pair_heap
