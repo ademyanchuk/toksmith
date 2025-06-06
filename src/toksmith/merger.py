@@ -111,3 +111,21 @@ class FastMerger:
         break  # fresh entry
       # else, stale entry, continue
     return pair, count
+
+  def _update_pair(self, pair: tuple[int, int], freq: int):
+    """
+    Helper method to update pair state in `pair_count` and `pair_heap`,
+    it increments or decrements count depending on `freq` sign.
+    Note: this method is destructive for `pair_count` as it removes entry
+    with count <= 0
+    """
+    # freq == 0 -> no-op
+    if freq == 0:
+      return
+    cnt = self.pair_count[pair]
+    cnt += freq
+    if cnt > 0:  # update state
+      self.pair_count[pair] = cnt
+      heapq.heappush(self.pair_heap, HeapEntry(cnt, pair))
+    else:  # drop entry
+      del self.pair_count[pair]
