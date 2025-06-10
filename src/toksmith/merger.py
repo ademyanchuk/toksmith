@@ -130,3 +130,68 @@ class FastMerger:
       # both datastructures are synced
       del self.pair_count[pair]
       self.pair_to_pretoken_set.pop(pair, None)
+
+  def _merge_sequence(
+    self,
+    old_seq: tuple[int, ...],
+    seq_freq: int,
+    top_pair: tuple[int, int],
+    new_ix: int,
+  ) -> None:
+    """
+    Performs merge of `top_pair` in the `old_seq` substituting it
+    with `new_ix`.
+    Note: this function updates all required datastructures' state,
+    except the state of `top_pair` itself as merge routine supposed
+    to be called with the same `top_pair` on one or more `old_seq`
+    sequences
+    """
+    new_builder = []
+    i = 0
+
+    while i < len(old_seq):
+      # found top_pair position
+      if i + 1 < len(old_seq) and (old_seq[i], old_seq[i + 1]) == top_pair:
+        # grab neighbors, if any
+        u = new_builder[-1] if new_builder else None
+        v = old_seq[i + 2] if i + 2 < len(old_seq) else None
+
+        # decrement counts of outgoing neighbor pairs, e.g. if top pair is (x,y)
+        # we decrement u,x and y,v counts (in pair_count and pair_heap)
+        # adn discard old_seq from outgoing pair set (in pair_to_pretoken_set)
+        if u is not None:
+          self._update_pair((u, top_pair[0]), -seq_freq)
+          s = self.pair_to_pretoken_set[(u, top_pair[0])]
+          if s is not None:
+            s.discard(old_seq)
+        if v is not None:
+          self._update_pair((top_pair[1], v), -seq_freq)
+          s = self.pair_to_pretoken_set[(top_pair[1], v)]
+          if s is not None:
+            s.discard(old_seq)
+
+        # increment counts for incoming pairs
+        if u is not None:
+          self._update_pair((u, new_ix), seq_freq)
+        if v is not None:
+          self._update_pair((new_ix, v), seq_freq)
+
+        # merge
+        new_builder.append(new_ix)
+        i += 2
+      else:
+        new_builder.append(old_seq[i])
+        i += 1
+
+    new_seq = tuple(new_builder)
+    # remove old tok_seq from pretoken_count, add new_seq
+    del self.pretoken_count[old_seq]
+    self.pretoken_count[new_seq] = seq_freq
+
+    # Important: update pair to pretoken set adjacency dict
+    for pair in zip(new_seq, new_seq[1:]):
+      s = self.pair_to_pretoken_set.setdefault(pair, set())
+      # add new_seq to all pairs forming it
+      s.add(new_seq)
+      # maybe remove old_seq from pairs forming new_seq
+      s.discard(old_seq)
