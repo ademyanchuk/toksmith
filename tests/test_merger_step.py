@@ -124,6 +124,8 @@ def test_update_pair_decrement(base_count):
   assert fm.pair_count[pair] == 5 + freq
   # check entry is in the heap
   assert HeapEntry(5 + freq, pair) in fm.pair_heap
+  # check pair is in adjacency dict
+  assert pair in fm.pair_to_pretoken_set
 
 
 def test_update_pair_decrement_delete(base_count):
@@ -136,6 +138,8 @@ def test_update_pair_decrement_delete(base_count):
   assert pair not in fm.pair_count
   # check stale entry is still in the heap
   assert HeapEntry(2, pair) in fm.pair_heap
+  # check pair is not in adjacency dict
+  assert pair not in fm.pair_to_pretoken_set
 
 
 def test_update_pair_no_op():

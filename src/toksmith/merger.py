@@ -114,18 +114,19 @@ class FastMerger:
 
   def _update_pair(self, pair: tuple[int, int], freq: int):
     """
-    Helper method to update pair state in `pair_count` and `pair_heap`,
-    it increments or decrements count depending on `freq` sign.
-    Note: this method is destructive for `pair_count` as it removes entry
-    with count <= 0
+    Helper method to update pair state in `pair_count`, `pair_heap`, and `pair_to_pretoken_set`.
+    It increments or decrements count depending on `freq` sign.
+    Note: this method is destructive for `pair_count` and `pair_to_pretoken_set`
+    as it removes entry with count <= 0
     """
     # freq == 0 -> no-op
     if freq == 0:
       return
-    cnt = self.pair_count[pair]
-    cnt += freq
+    cnt = self.pair_count[pair] + freq
     if cnt > 0:  # update state
       self.pair_count[pair] = cnt
       heapq.heappush(self.pair_heap, HeapEntry(cnt, pair))
     else:  # drop entry
+      # both datastructures are synced
       del self.pair_count[pair]
+      self.pair_to_pretoken_set.pop(pair, None)
