@@ -148,3 +148,35 @@ def test_update_pair_no_op():
   fm._update_pair((1, 2), 0)
   assert not fm.pair_count
   assert not fm.pair_heap
+
+
+# Micro-tests for _merge_sequence
+
+
+def test_merge_sequence():
+  """Test a happy path"""
+  pretoken_count = Counter({(1, 2, 3, 4): 2, (2, 3): 1})
+  # building a FastMerger from it gives us following state:
+  # pair_count = {(1,2): 2, (2,3): 3, (3,4): 2}
+  # pair_heap ~ [(3, (2, 3)), (2, (1, 2)), (2, (3, 4))]
+  # pair_to_pretoken_set = {(1, 2): {(1,2,3,4)}, (2,3): {(1,2,3,4),(2,3)}, (3,4): {(1,2,3,4)}}
+  fm = FastMerger(pretoken_count)
+  old_seq = (1, 2, 3, 4)
+  seq_freq, top_pair, new_ix = 2, (2, 3), 99
+  fm._merge_sequence(old_seq, seq_freq, top_pair, new_ix)
+  # we expect
+  expect_new_seq = (1, 99, 4)
+  # old sequence is not in pretoken count and new is in with correct frequency
+  expect_pretoken_count = Counter({expect_new_seq: seq_freq, (2, 3): 1})
+  assert fm.pretoken_count == expect_pretoken_count
+  # (1,2) and (3,4) are not in pair_count and pair_to_pretoken_set anymore
+  # (1,99) and (99,4) are in those data structures
+  # top_pair (2,3) state is properly updated
+  expect_pair_count = Counter({top_pair: 1, (1, 99): 2, (99, 4): 2})
+  assert fm.pair_count == expect_pair_count
+  expect_pair_to_pretoken = {(2, 3): {(2, 3)}, (1, 99): {expect_new_seq}, (99, 4): {expect_new_seq}}
+  assert fm.pair_to_pretoken_set == expect_pair_to_pretoken
+  # the function doesn't pop stale entries from the heap, so we expect only 3 new entries
+  assert len(fm.pair_heap) == 6
+  for entry in [HeapEntry(1, top_pair), HeapEntry(2, (1, 99)), HeapEntry(2, (99, 4))]:
+    assert entry in fm.pair_heap
