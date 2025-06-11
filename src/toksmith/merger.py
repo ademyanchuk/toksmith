@@ -165,12 +165,12 @@ class FastMerger:
         # adn discard old_seq from outgoing pair set (in pair_to_pretoken_set)
         if u is not None:
           self._update_pair((u, top_pair[0]), -seq_freq)
-          s = self.pair_to_pretoken_set[(u, top_pair[0])]
+          s = self.pair_to_pretoken_set.get((u, top_pair[0]))
           if s is not None:
             s.discard(old_seq)
         if v is not None:
           self._update_pair((top_pair[1], v), -seq_freq)
-          s = self.pair_to_pretoken_set[(top_pair[1], v)]
+          s = self.pair_to_pretoken_set.get((top_pair[1], v))
           if s is not None:
             s.discard(old_seq)
 
