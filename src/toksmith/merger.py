@@ -141,10 +141,9 @@ class FastMerger:
     """
     Performs merge of `top_pair` in the `old_seq` substituting it
     with `new_ix`.
-    Note: this function updates all required datastructures' state,
-    except the state of `top_pair` itself as merge routine supposed
-    to be called with the same `top_pair` on one or more `old_seq`
-    sequences
+    Note: this function updates all required datastructures' state
+    for old and new sequences, top pair, outgoing, and incoming neighbor
+    pairs
     """
     # we want this to blow on `seq_freq` == 0, as we don't allow stale entries
     # with count == 0 in our pair counter and pair to pretoken set mapping
@@ -152,10 +151,12 @@ class FastMerger:
     assert seq_freq > 0, 'Stale entry came from pair_to_pretoken_set, not allowed!'
     new_builder = []
     i = 0
+    top_pair_cnt = 0
 
     while i < len(old_seq):
       # found top_pair position
       if i + 1 < len(old_seq) and (old_seq[i], old_seq[i + 1]) == top_pair:
+        top_pair_cnt += 1
         # grab neighbors, if any
         u = new_builder[-1] if new_builder else None
         v = old_seq[i + 2] if i + 2 < len(old_seq) else None
@@ -191,6 +192,12 @@ class FastMerger:
     # remove old tok_seq from pretoken_count, add new_seq
     del self.pretoken_count[old_seq]
     self.pretoken_count[new_seq] = seq_freq
+
+    # decrement top pair state
+    self._update_pair(top_pair, -top_pair_cnt * seq_freq)
+    s = self.pair_to_pretoken_set.get(top_pair)
+    if s is not None:
+      s.discard(old_seq)
 
     # Important: update pair to pretoken set adjacency dict
     # Note: incoming pairs -> pretoken set mappings got updated here too
