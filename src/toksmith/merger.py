@@ -146,6 +146,10 @@ class FastMerger:
     to be called with the same `top_pair` on one or more `old_seq`
     sequences
     """
+    # we want this to blow on `seq_freq` == 0, as we don't allow stale entries
+    # with count == 0 in our pair counter and pair to pretoken set mapping
+    # this indicate an implementation bug and we want to investigate
+    assert seq_freq > 0, 'Stale entry came from pair_to_pretoken_set, not allowed!'
     new_builder = []
     i = 0
 
@@ -189,6 +193,7 @@ class FastMerger:
     self.pretoken_count[new_seq] = seq_freq
 
     # Important: update pair to pretoken set adjacency dict
+    # Note: incoming pairs -> pretoken set mappings got updated here too
     for pair in zip(new_seq, new_seq[1:]):
       s = self.pair_to_pretoken_set.setdefault(pair, set())
       # add new_seq to all pairs forming it
