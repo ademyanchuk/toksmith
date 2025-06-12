@@ -180,3 +180,31 @@ def test_merge_sequence():
   assert len(fm.pair_heap) == 6
   for entry in [HeapEntry(1, top_pair), HeapEntry(2, (1, 99)), HeapEntry(2, (99, 4))]:
     assert entry in fm.pair_heap
+
+
+def test_merge_sequence_two_merges():
+  """Test correctness for sequence with two instances of top pair"""
+  pretoken_count = Counter({(1, 2, 3, 1, 2, 3): 2})
+  # FastMerger state:
+  # pair_count = {(1,2):4, (2,3):4, (3,1):2}
+  # pair_heap = [(4, (2,3)), (4, (1,2)), (2, (3,1))]
+  # pair_to_pretoken_set = {(1,2):{seq}, (2,3):{seq}, (3,1):{seq}}
+  fm = FastMerger(pretoken_count)
+  old_seq = (1, 2, 3, 1, 2, 3)
+  seq_freq, top_pair, new_ix = 2, (2, 3), 42
+  fm._merge_sequence(old_seq, seq_freq, top_pair, new_ix)
+  # we expect
+  expect_new_seq = (1, 42, 1, 42)
+  assert fm.pretoken_count == Counter({expect_new_seq: seq_freq})
+  # pairs (1,2), (2,3), and (3,1) are gone
+  # pairs (1,42) and (42,1) added
+  assert fm.pair_count == Counter({(1, 42): 4, (42, 1): 2})  # for (1,42) 2 instances of pair * 2 instances of sequence
+  assert fm.pair_to_pretoken_set == {(1, 42): {expect_new_seq}, (42, 1): {expect_new_seq}}
+  # now to heap
+  # first instance of top pair merge: incoming 1,42 and 42,1 with count 2 should be added,
+  # outgoing 1,2 should have new entry with decremented count 4-2
+  # second instance: incoming 1,42 should have new entry added with count 4
+  # no new entries for outgoing pairs should be added as their counts drop to 0
+  for entry in [HeapEntry(2, (1, 42)), HeapEntry(2, (42, 1)), HeapEntry(2, (1, 2)), HeapEntry(4, (1, 42))]:
+    assert entry in fm.pair_heap
+  assert len(fm.pair_heap) == 7
