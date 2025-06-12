@@ -208,3 +208,24 @@ def test_merge_sequence_two_merges():
   for entry in [HeapEntry(2, (1, 42)), HeapEntry(2, (42, 1)), HeapEntry(2, (1, 2)), HeapEntry(4, (1, 42))]:
     assert entry in fm.pair_heap
   assert len(fm.pair_heap) == 7
+
+
+def test_merge_sequence_two_elements():
+  """Test merging for sequence containing two elements"""
+  pretoken_count = Counter({(99, 42): 2})
+  # FastMerger state:
+  # pair_count = {(99, 42): 2}
+  # pair_heap = [(2, (99, 42))]
+  # pair_to_pretoken_set = {(99, 42): {(99, 42)}}
+  fm = FastMerger(pretoken_count)
+  fm._merge_sequence((99, 42), 2, (99, 42), 123)
+  # we expect
+  # new sequence of 1 element
+  assert fm.pretoken_count == Counter({(123,): 2})
+  # empty pair counter
+  assert not fm.pair_count
+  # heap didn't change
+  assert len(fm.pair_heap) == 1
+  assert fm.pair_heap[0] == HeapEntry(2, (99, 42))
+  # empty pair to pretoken set mapping
+  assert not fm.pair_to_pretoken_set
