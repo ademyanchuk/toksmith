@@ -4,6 +4,7 @@ import json
 import logging
 import os
 import tempfile
+from collections import Counter
 from pathlib import Path
 from typing import Sequence, Tuple, TypeVar
 
@@ -62,14 +63,14 @@ class Tokenizer:
     self.vocab = {i: int.to_bytes(i) for i in range(256)}
     self.merges = []
 
-  def _pretoken_count(self, text: str) -> dict[tuple[int, ...], int]:
+  def _pretoken_count(self, text: str) -> Counter[tuple[int, ...]]:
     """Pre-tokenizes the text and produces the counter
     of pre-tokens represented as tuple of utf-8 encoded bytes"""
-    pretokens = dict()
+    pretokens = Counter()
     for mt in self.pattern.finditer(text):
       pt = mt.group()  # -> str; match will have one pretoken per group
       pt = tuple(pt.encode('utf-8'))
-      pretokens[pt] = pretokens.get(pt, 0) + 1
+      pretokens[pt] += 1
     return pretokens
 
   def train(
