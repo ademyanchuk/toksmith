@@ -1,6 +1,5 @@
 import pytest
 
-# Adjust these to wherever your code lives
 import toksmith.tokenizer as m
 from toksmith.tokenizer import Tokenizer
 
@@ -27,11 +26,11 @@ def test_train_single_merge(monkeypatch):
   # 3) Stub _pairs_count so that only the first call returns {(0,1):1}, then empty
   call = {'n': 0}
 
-  def fake_pairs(self, pret):
+  def fake_pairs(pret):
     call['n'] += 1
     return {(0, 1): 1} if call['n'] == 1 else {}
 
-  monkeypatch.setattr(Tokenizer, '_pairs_count', fake_pairs)
+  monkeypatch.setattr(m, '_pairs_count', fake_pairs)
 
   # 4) Stub the module‐level _merge to simply collapse (0,1) → (new_ix,)
   monkeypatch.setattr(m, '_merge', lambda pt, pair, new_ix: (new_ix,))

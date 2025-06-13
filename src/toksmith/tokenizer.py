@@ -17,6 +17,17 @@ GPT2_SPLIT_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\
 # helpers ============================
 
 
+def _pairs_count(pretokens: dict[tuple[int, ...], int]) -> dict[tuple[int, int], int]:
+  """Iterates through pre-tokens dict and produces
+  the counter of all sequential pairs of units.
+  Unit is an element of pre-token"""
+  pair_counts = dict()
+  for pt, cnt in pretokens.items():
+    for p in zip(pt, pt[1:]):
+      pair_counts[p] = pair_counts.get(p, 0) + cnt
+  return pair_counts
+
+
 def _merge(seq: Sequence[T], pair: Tuple[T, T], new_ix: T) -> Tuple[T, ...]:
   """Given a sequence of elements produces a new
   sequence with all non-overlapping occurrences of `pair`
@@ -61,16 +72,6 @@ class Tokenizer:
       pretokens[pt] = pretokens.get(pt, 0) + 1
     return pretokens
 
-  def _pairs_count(self, pretokens: dict[tuple[int, ...], int]) -> dict[tuple[int, int], int]:
-    """Iterates through pre-tokens dict and produces
-    the counter of all sequential pairs of units.
-    Unit is an element of pre-token"""
-    pair_counts = dict()
-    for pt, cnt in pretokens.items():
-      for p in zip(pt, pt[1:]):
-        pair_counts[p] = pair_counts.get(p, 0) + cnt
-    return pair_counts
-
   def train(
     self,
     text: str,
@@ -112,7 +113,7 @@ class Tokenizer:
     ix = 256
     num_iters = vocab_size - min_size  # keep vocab space for special tokens
     for _ in range(num_iters):
-      pair_counts = self._pairs_count(pretokens)
+      pair_counts = _pairs_count(pretokens)
       if not pair_counts:
         break  # for small text examples with large vocab size
       # find most frequent pair, ties resolved in lexicographical order

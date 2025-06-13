@@ -1,6 +1,6 @@
 import pytest
 
-from toksmith.tokenizer import Tokenizer, _merge
+from toksmith.tokenizer import Tokenizer, _merge, _pairs_count
 
 
 @pytest.fixture
@@ -63,7 +63,7 @@ def test_pretoken_count_unicode(tok, text, expected):
 
 
 # test _pairs_count
-def test_pairs_count_unit_manual(tok):
+def test_pairs_count_unit_manual():
   """
   Unit-test _pairs_count in isolation:
     - pretend we have two pretokens: (1,2,3) occurring twice, and (3,4) once
@@ -81,7 +81,7 @@ def test_pairs_count_unit_manual(tok):
     (2, 3): 2,
     (3, 4): 1,
   }
-  result = tok._pairs_count(manual_pretoks)
+  result = _pairs_count(manual_pretoks)
   assert result == expected
 
 
@@ -114,7 +114,7 @@ def test_pairs_count_integration(tok, text, expected_pairs):
   Integration test: run the real regex→pretoks→pairs pipeline.
   """
   pretoks = tok._pretoken_count(text)
-  pairs = tok._pairs_count(pretoks)
+  pairs = _pairs_count(pretoks)
   assert pairs == expected_pairs
 
 
