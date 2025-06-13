@@ -1,6 +1,6 @@
 import pytest
 
-from toksmith.tokenizer import Tokenizer, _merge, _pairs_count
+from toksmith.tokenizer import BasicMerger, Tokenizer, _merge, _pairs_count
 
 
 @pytest.fixture
@@ -172,3 +172,9 @@ def test_invalid_pair_length():
     _merge((1, 2, 3), (1,), 0)  # type: ignore
   with pytest.raises(ValueError):
     _merge((1, 2, 3), (1, 2, 3), 0)  # type: ignore
+
+
+def test_basic_merger_step_no_pairs():
+  """Cover the branch into returning None"""
+  bm = BasicMerger({(123,): 2})  # no sequences with more than one token
+  assert bm.step(256) is None
