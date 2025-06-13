@@ -6,7 +6,7 @@ import os
 import tempfile
 from collections import Counter
 from pathlib import Path
-from typing import Sequence, Tuple, TypeVar
+from typing import Optional, Sequence, Tuple, TypeVar
 
 import regex as re
 
@@ -50,6 +50,52 @@ def _merge(seq: Sequence[T], pair: Tuple[T, T], new_ix: T) -> Tuple[T, ...]:
 
 # tokenizer code ================================
 logger = logging.getLogger(__name__)
+
+
+class BasicMerger:
+  """
+  Implements merging of top pair in tne sequence of tokens
+  in its `step` method. Refactored from Tokenizer `train` method
+  to allow FastMerger drop-in
+  """
+
+  def __init__(self, pretoken_count: Counter[tuple[int, ...]]):
+    """
+    Initializes Merger state required to do merge (train) step.
+    Requires caller to provide `pretoken_count` map of integer
+    sequence (representing pretoken formed from first 256 utf-8 bytes
+    or later merges) to integer (count). Note: Merger takes ownership of
+    the `pretoken_count` dict and mutates it later during training
+    """
+    self.pretoken_count = pretoken_count
+
+  def step(self, ix: int) -> Optional[tuple[int, int]]:
+    """
+    Implements merging of next top pair tokens into new index `ix`,
+    return this top pair or None, if all pairs have been merged in
+    the self.pretoken_count corpus
+    """
+    pair_counts = _pairs_count(self.pretoken_count)
+    if not pair_counts:
+      # all sequences in pretoken_count have been merged already
+      return None  # for small text examples with large vocab size
+    # find most frequent pair, ties resolved in lexicographical order
+    top_pair, _ = max(pair_counts.items(), key=lambda it: [it[1], it[0]])
+    # merge
+    # Each merge introduces a new token (pair → new token) that wasn’t in the vocabulary before
+    # Pretoken keys are sequences of current tokens.
+    # Until you merge ('t', 'e') into 'te', there's no way 'te' appears as a unit inside any key
+    # Only keys that contain the exact pair ('t', 'e') in adjacent positions will be modified.
+    # The output of merge() depends deterministically on the input key.
+    # Therefore, at most one original key can produce any given new_pt in the merge step.
+    for pt in list(self.pretoken_count):  # static copy of keys (prevents RuntimeError if we iterate original dict)
+      new_pt = _merge(pt, top_pair, ix)
+      if new_pt != pt:  # update only if we merged new index
+        # even though we proved it can't happen (see above), we want this assertions and perhaps test against it
+        # so we are sure not to mess up with implementation
+        assert new_pt not in self.pretoken_count, f'Collision: {new_pt} already in pretokens'
+        self.pretoken_count[new_pt] = self.pretoken_count.pop(pt)  #  safe from key collisions under the BPE merge assumptions
+    return top_pair
 
 
 class Tokenizer:
@@ -111,29 +157,13 @@ class Tokenizer:
       # in parallel
       text = re.sub(f'(?:{delim})+', ' ', text)
     pretokens = self._pretoken_count(text)
+    bm = BasicMerger(pretokens)
     ix = 256
     num_iters = vocab_size - min_size  # keep vocab space for special tokens
     for _ in range(num_iters):
-      pair_counts = _pairs_count(pretokens)
-      if not pair_counts:
-        break  # for small text examples with large vocab size
-      # find most frequent pair, ties resolved in lexicographical order
-      top_pair, _ = max(pair_counts.items(), key=lambda it: [it[1], it[0]])
-      # merge
-      # Each merge introduces a new token (pair → new token) that wasn’t in the vocabulary before
-      # Pretoken keys are sequences of current tokens.
-      # Until you merge ('t', 'e') into 'te', there's no way 'te' appears as a unit inside any key
-      # Only keys that contain the exact pair ('t', 'e') in adjacent positions will be modified.
-      # The output of merge() depends deterministically on the input key.
-      # Therefore, at most one original key can produce any given new_pt in the merge step.
-      for pt in list(pretokens):  # static copy of keys (prevents RuntimeError if we iterate original dict)
-        new_pt = _merge(pt, top_pair, ix)
-        if new_pt != pt:  # update only if we merged new index
-          # even though we proved it can't happen (see above), we want this assertions and perhaps test against it
-          # so we are sure not to mess up with implementation
-          assert new_pt not in pretokens, f'Collision: {new_pt} already in pretokens'
-          pretokens[new_pt] = pretokens.pop(pt)  #  safe from key collisions under the BPE merge assumptions
-      # updata tokenizer state
+      top_pair = bm.step(ix)
+      if top_pair is None:
+        logger.debug(f'Early stop at {ix=}, no more pairs to merge!')
       self.merges.append(top_pair)
       self.vocab[ix] = self.vocab[top_pair[0]] + self.vocab[top_pair[1]]
       if verbose:
