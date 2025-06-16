@@ -10,6 +10,8 @@ from typing import Optional, Sequence, Tuple, TypeVar
 
 import regex as re
 
+from toksmith.merger import FastMerger
+
 T = TypeVar('T')
 
 # from here: https://github.com/openai/tiktoken/pull/234/files
@@ -124,6 +126,7 @@ class Tokenizer:
     text: str,
     vocab_size: int,
     special_tokens: list[str],
+    use_fast_merge: bool = False,
     verbose: bool = False,
   ) -> None:
     """Trains a BPE tokenizer on provided text, updates tokenizer state
@@ -157,11 +160,14 @@ class Tokenizer:
       # in parallel
       text = re.sub(f'(?:{delim})+', ' ', text)
     pretokens = self._pretoken_count(text)
-    bm = BasicMerger(pretokens)
+    Merger = BasicMerger
+    if use_fast_merge:
+      Merger = FastMerger
+    merger = Merger(pretokens)
     ix = 256
     num_iters = vocab_size - min_size  # keep vocab space for special tokens
     for _ in range(num_iters):
-      top_pair = bm.step(ix)
+      top_pair = merger.step(ix)
       if top_pair is None:
         logger.debug(f'Early stop at {ix=}, no more pairs to merge!')
       self.merges.append(top_pair)

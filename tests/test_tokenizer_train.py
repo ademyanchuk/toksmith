@@ -48,7 +48,8 @@ def test_train_single_merge(monkeypatch):
   assert call['n'] == 1
 
 
-def test_train_on_wiki_example():
+@pytest.mark.parametrize('use_fast_merge', [False, True])
+def test_train_on_wiki_example(use_fast_merge):
   """
   Full-pipeline integration test on “aaabdaaabac”
   reflecting our tie-breaking rule:
@@ -62,7 +63,7 @@ def test_train_on_wiki_example():
   tok = Tokenizer()
 
   # Request exactly 3 merges beyond the 256 base bytes
-  tok.train(text, vocab_size=256 + 3, special_tokens=[])
+  tok.train(text, vocab_size=256 + 3, special_tokens=[], use_fast_merge=use_fast_merge)
 
   # Expect exactly those three merges—in byte‐pair form:
   first = (ord('a'), ord('a'))  # "aa"
@@ -77,7 +78,8 @@ def test_train_on_wiki_example():
   assert tok.vocab[258] == b'aaab'
 
 
-def test_train_strips_and_merges_with_special_token():
+@pytest.mark.parametrize('use_fast_merge', [False, True])
+def test_train_strips_and_merges_with_special_token(use_fast_merge):
   """
   Given text="ab<tok>ab" and special_tokens=["<tok>"], with vocab_size=258:
    - We reserve 256 base bytes, 1 merge, 1 special token.
@@ -90,7 +92,7 @@ def test_train_strips_and_merges_with_special_token():
 
   tok = Tokenizer()
   # run training
-  tok.train(text, vocab_size=vocab_size, special_tokens=special)
+  tok.train(text, vocab_size=vocab_size, special_tokens=special, use_fast_merge=use_fast_merge)
 
   # 1 merge only, on ("a","b")
   assert tok.merges == [(ord('a'), ord('b'))]
@@ -101,7 +103,8 @@ def test_train_strips_and_merges_with_special_token():
   assert tok.vocab[257] == b'<tok>'
 
 
-def test_merges_equal_for_clean_and_special_text():
+@pytest.mark.parametrize('use_fast_merge', [False, True])
+def test_merges_equal_for_clean_and_special_text(use_fast_merge):
   """
   The merge sequence on "abab" (no special tokens) should match
   the merge sequence on "ab<tok>ab" when stripping <tok>,
@@ -113,16 +116,17 @@ def test_merges_equal_for_clean_and_special_text():
   # both will do exactly one merge
 
   t1 = Tokenizer()
-  t1.train(clean, vocab_size=256 + 1, special_tokens=[])
+  t1.train(clean, vocab_size=256 + 1, special_tokens=[], use_fast_merge=use_fast_merge)
   t2 = Tokenizer()
-  t2.train(noisy, vocab_size=256 + 1 + len(special), special_tokens=special)
+  t2.train(noisy, vocab_size=256 + 1 + len(special), special_tokens=special, use_fast_merge=use_fast_merge)
 
   # The _only_ difference should be that t2 has the special token
   assert t1.merges == t2.merges
   assert t1.vocab[256] == t2.vocab[256]
 
 
-def test_train_resets_previous_state():
+@pytest.mark.parametrize('use_fast_merge', [False, True])
+def test_train_resets_previous_state(use_fast_merge):
   """
   Ensure that train() always clears self.merges and self.vocab back to
   the clean 0–255 byte vocab before doing any new merges.
@@ -135,7 +139,7 @@ def test_train_resets_previous_state():
 
   # 2) Run train on a simple example that will do exactly one merge:
   #    text="abab" => one merge ("a","b") => idx=256
-  tok.train('abab', vocab_size=256 + 1, special_tokens=[])
+  tok.train('abab', vocab_size=256 + 1, special_tokens=[], use_fast_merge=use_fast_merge)
 
   # 3) After train, old merges must be gone
   assert tok.merges == [(ord('a'), ord('b'))]
