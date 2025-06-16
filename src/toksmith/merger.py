@@ -5,6 +5,7 @@ and doesn't do i/o or regex-grouping itself"""
 import heapq
 from collections import Counter
 from dataclasses import dataclass, field
+from typing import Optional
 
 
 ############### utilities ##########################
@@ -210,3 +211,17 @@ class FastMerger:
     s = self.pair_to_pretoken_set.get(pair)
     if s is not None:
       s.discard(seq)
+
+  def step(self, ix: int) -> Optional[tuple[int, int]]:
+    """
+    Implements merging of next top pair tokens into new index `ix`,
+    return this top pair or None, if all pairs have been merged in
+    the self.pretoken_count corpus
+    """
+    if not self.pair_count:
+      return None
+    top_pair, _ = self._most_common_pair()
+    for sequence in list(self.pair_to_pretoken_set[top_pair]):  # copy of the set, as merger state is being updated
+      seq_freq = self.pretoken_count[sequence]
+      self._merge_sequence(sequence, seq_freq, top_pair, ix)
+    return top_pair

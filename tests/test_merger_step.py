@@ -229,3 +229,37 @@ def test_merge_sequence_two_elements():
   assert fm.pair_heap[0] == HeapEntry(2, (99, 42))
   # empty pair to pretoken set mapping
   assert not fm.pair_to_pretoken_set
+
+
+# test step method
+
+
+def test_step_none():
+  """Test the None branch of the step"""
+  fm = FastMerger(Counter())  # empty
+  assert fm.step(42) is None
+
+
+def test_step():
+  """Test happy path of the step"""
+  pretoken_count = Counter({(1, 2, 3): 2, (2, 3): 1})
+  # State:
+  # pair_count = {(1,2): 2, (2,3): 3}
+  # pair_heap = [(3, (2,3)), (2, (1,2))]
+  # pair_to_pretoken_set = {(2,3): {(1,2,3), (2,3)}, (1,2): {(1,2,3)}}
+  fm = FastMerger(pretoken_count)
+  top_pair = fm.step(42)
+  # correct return
+  assert top_pair is not None and top_pair == (2, 3)
+  # and correct state after the step
+  assert fm.pretoken_count == Counter({(1, 42): 2, (42,): 1})
+  assert fm.pair_count == Counter({(1, 42): 2})
+  # heap being lazily updated should still have (1,2), have new (1,42),
+  # updated (2,3) with count of 2 or 1, depending on which sequence was merged first
+  assert len(fm.pair_heap) == 3
+  assert HeapEntry(2, (1, 2)) in fm.pair_heap
+  assert HeapEntry(2, (1, 42)) in fm.pair_heap
+  # original (2,3) is not there
+  assert HeapEntry(3, (2, 3)) not in fm.pair_heap
+  # correct state of pair_to_pretoken_set
+  assert fm.pair_to_pretoken_set == Counter({(1, 42): {(1, 42)}})
