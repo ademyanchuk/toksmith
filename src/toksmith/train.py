@@ -138,6 +138,7 @@ def run(args: argparse.Namespace) -> int:
     text=text,
     vocab_size=args.vocab_size,
     special_tokens=args.special_tokens,
+    use_fast_merge=True,
     verbose=(args.verbose >= 2),
   )
   # Save
