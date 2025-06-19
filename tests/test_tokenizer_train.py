@@ -21,7 +21,7 @@ def test_train_single_merge(monkeypatch):
   tok.vocab = {i: bytes([i]) for i in range(256)}
 
   # 2) Stub _pretoken_count to always return a single pretoken (0,1) count=1
-  monkeypatch.setattr(Tokenizer, '_pretoken_count', lambda self, text: {(0, 1): 1})
+  monkeypatch.setattr(m, 'count_tokens_single', lambda text: {(0, 1): 1})
 
   # 3) Stub _pairs_count so that only the first call returns {(0,1):1}, then empty
   call = {'n': 0}

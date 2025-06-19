@@ -11,11 +11,9 @@ from typing import Optional, Sequence, Tuple, TypeVar
 import regex as re
 
 from toksmith.merger import FastMerger
+from toksmith.pretokenizer import count_tokens_single
 
 T = TypeVar('T')
-
-# from here: https://github.com/openai/tiktoken/pull/234/files
-GPT2_SPLIT_PAT = r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+"""
 
 # helpers ============================
 
@@ -104,22 +102,11 @@ class Tokenizer:
   """GPT2-like tokenizer, using BPE algorithm"""
 
   def __init__(self) -> None:
-    self.pattern = re.compile(GPT2_SPLIT_PAT)
     self._reset_state()
 
   def _reset_state(self):
     self.vocab = {i: int.to_bytes(i) for i in range(256)}
     self.merges = []
-
-  def _pretoken_count(self, text: str) -> Counter[tuple[int, ...]]:
-    """Pre-tokenizes the text and produces the counter
-    of pre-tokens represented as tuple of utf-8 encoded bytes"""
-    pretokens = Counter()
-    for mt in self.pattern.finditer(text):
-      pt = mt.group()  # -> str; match will have one pretoken per group
-      pt = tuple(pt.encode('utf-8'))
-      pretokens[pt] += 1
-    return pretokens
 
   def train(
     self,
@@ -159,7 +146,7 @@ class Tokenizer:
       # might add multiprocessing for large texts and do _pretoken_count
       # in parallel
       text = re.sub(f'(?:{delim})+', ' ', text)
-    pretokens = self._pretoken_count(text)
+    pretokens = count_tokens_single(text)
     Merger = BasicMerger
     if use_fast_merge:
       Merger = FastMerger
