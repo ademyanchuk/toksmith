@@ -1,6 +1,8 @@
 """Single/multiprocess pretoken counter implementation"""
 
+import multiprocessing
 from collections import Counter
+from typing import Iterable
 
 import regex
 
@@ -31,3 +33,24 @@ def count_tokens_single(text: str) -> Counter[tuple[int, ...]]:
   """
   c = count_tokens(text)
   return Counter({tuple(tok.encode('utf-8')): cnt for tok, cnt in c.items()})
+
+
+# --- multiprocessing -----------------------------------------------------
+def count_tokens_multi(
+  text_iter: Iterable[str],
+  n_proc: int = 4,
+  n_chunks: int = 1,
+) -> Counter[tuple[int, ...]]:
+  """
+  Multiprocessing version of our pre-tokenizer
+  Given that `text_iter` is the chunkated `text`
+  this function must produce the same result as
+  `count_token_single(text)`
+  n_proc: number of processes to use (positive integer)
+  n_chunks: number of chunks to transfer to process at once (positive integer)
+  """
+  total = Counter()
+  with multiprocessing.Pool(processes=n_proc) as pool:
+    for chunk in pool.imap_unordered(count_tokens, text_iter, chunksize=n_chunks):
+      total.update(chunk)
+  return Counter({tuple(tok.encode('utf-8')): cnt for tok, cnt in total.items()})
