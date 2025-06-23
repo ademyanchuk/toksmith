@@ -2,7 +2,7 @@
 
 import multiprocessing
 from collections import Counter
-from typing import Iterable
+from collections.abc import Iterable, Iterator
 
 import regex
 
@@ -54,3 +54,20 @@ def count_tokens_multi(
     for chunk in pool.imap_unordered(count_tokens, text_iter, chunksize=n_chunks):
       total.update(chunk)
   return Counter({tuple(tok.encode('utf-8')): cnt for tok, cnt in total.items()})
+
+
+# --- generate chunks of text from file -------------------------------------
+def generate_text_chunks(
+  file_path: str,
+  delimiter: regex.Pattern[str],
+  chunk_size: int = 4096,
+  overlap_size: int = 512,
+) -> Iterator[str]:
+  """
+  Yields text chunks from the file, splitted by delimiter
+
+  Note: delimiter is stripped off of the chunk. It is a caller
+  responsibility to provide a valid path to the text file, which
+  contains `delimiter` we use for splitting the text
+  """
+  pass
