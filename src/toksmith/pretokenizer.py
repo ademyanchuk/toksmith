@@ -70,4 +70,51 @@ def generate_text_chunks(
   responsibility to provide a valid path to the text file, which
   contains `delimiter` we use for splitting the text
   """
-  pass
+  buffer = ''  # overlapping part from the previously read chunk
+  file_is_finished = False
+  with open(file_path, 'rt', encoding='utf-8') as file:
+    while not file_is_finished:
+      new_read = file.read(chunk_size)
+      if not new_read:
+        file_is_finished = True
+      current_chunk = buffer + new_read
+      # the part of the chunk beyond effective size will become next buffer
+      effective_size = len(current_chunk) - overlap_size
+      # chunk is smaller than our dedicated buffer
+      # this can be true at the end of the file:
+      # 1. file is smaller than buffer size
+      # 2. last buffer and new read is smaller than buffer size
+      # so at the eof we need to let buffer utilization branch work
+      if effective_size <= 0:
+        buffer = current_chunk
+        if not file_is_finished:
+          continue
+      # we have a chunk + overlapping part
+      if not file_is_finished:
+        cur_end = 0
+        for match in regex.finditer(delimiter, current_chunk):
+          start, end = match.span()
+          # we form a segment to yield only if we found delimiter
+          segment = current_chunk[cur_end:start]
+          cur_end = end
+          # and yield if it's non-empty (can happen with back to back delimiters)
+          if segment:
+            yield segment
+          if start >= effective_size:  # rest is buffer
+            break
+        # rest should be accumulated as we only split by delimiter
+        buffer = current_chunk[cur_end:]
+      # eof, we want to yield what's left
+      else:
+        cur_end = 0
+        for match in regex.finditer(delimiter, current_chunk):
+          start, end = match.span()
+          # as before yield segment only delimiter was found
+          segment = current_chunk[cur_end:start]
+          if segment:
+            yield segment
+          cur_end = end
+        # we can still have something left if file doesn't end with delimiter
+        if cur_end < len(current_chunk):
+          # leftover or never got into the previous for loop
+          yield current_chunk[cur_end:]
