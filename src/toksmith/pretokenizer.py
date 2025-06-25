@@ -59,7 +59,7 @@ def count_tokens_multi(
 # --- generate chunks of text from file -------------------------------------
 def generate_text_chunks(
   file_path: str,
-  delimiter: regex.Pattern[str],
+  delimiter: str,
   chunk_size: int = 4096,
   overlap_size: int = 512,
 ) -> Iterator[str]:
@@ -72,6 +72,8 @@ def generate_text_chunks(
   """
   buffer = ''  # overlapping part from the previously read chunk
   file_is_finished = False
+  # compile regex pattern (we use it many times here)
+  delimiter_re = regex.compile(delimiter)
   with open(file_path, 'rt', encoding='utf-8') as file:
     while not file_is_finished:
       new_read = file.read(chunk_size)
@@ -92,7 +94,7 @@ def generate_text_chunks(
       # we have a chunk + overlapping part
       if not file_is_finished:
         cur_end = 0
-        for match in regex.finditer(delimiter, current_chunk):
+        for match in regex.finditer(delimiter_re, current_chunk):
           start, end = match.span()
           # we form a segment to yield only if we found delimiter
           segment = current_chunk[cur_end:start]
@@ -107,7 +109,7 @@ def generate_text_chunks(
       # eof, we want to yield what's left
       else:
         cur_end = 0
-        for match in regex.finditer(delimiter, current_chunk):
+        for match in regex.finditer(delimiter_re, current_chunk):
           start, end = match.span()
           # as before yield segment only delimiter was found
           segment = current_chunk[cur_end:start]
