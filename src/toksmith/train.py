@@ -132,13 +132,11 @@ def run(args: argparse.Namespace) -> int:
   logging.debug('Saving to %r with prefix %r', str(output_dir), prefix_name)
 
   # Read and train
-  text = input_path.read_text(encoding='utf-8')
   tok = Tokenizer()
-  tok.train(
-    text=text,
+  tok.train_from_file(
+    file_path=input_path,
     vocab_size=args.vocab_size,
     special_tokens=args.special_tokens,
-    use_fast_merge=True,
     verbose=(args.verbose >= 2),
   )
   # Save

@@ -20,13 +20,12 @@ def dummy_tokenizer(monkeypatch):
       # capture the instance
       calls['inst'] = self
 
-    def train(self, text, vocab_size, special_tokens, use_fast_merge, verbose):
+    def train_from_file(self, file_path, vocab_size, special_tokens, verbose):
       # record exactly what we were passed
       calls['inst'].train_args = {
-        'text': text,
+        'file_path': file_path,
         'vocab_size': vocab_size,
         'special_tokens': special_tokens,
-        'use_fast_merge': use_fast_merge,
         'verbose': verbose,
       }
 
@@ -78,11 +77,10 @@ def test_run_happy_path(tmp_path, dummy_tokenizer, monkeypatch):
 
   # 4) Check that train() got the expected args
   train_args = inst.train_args
-  assert train_args['text'] == 'hello world'
+  assert Path(train_args['file_path']).resolve() == input_file.resolve()
   assert train_args['vocab_size'] == 300
   assert train_args['special_tokens'] == ['<bos>', '<eos>']
   assert train_args['verbose'] is True
-  assert train_args['use_fast_merge'] is True
 
   # 5) Check that save_state() wrote the file with the right prefix & folder
   save_args = inst.save_args
