@@ -2,6 +2,7 @@
 
 import json
 import logging
+import multiprocessing
 import os
 import tempfile
 from collections import Counter
@@ -11,7 +12,7 @@ from typing import Optional, Sequence, Tuple, TypeVar
 import regex as re
 
 from toksmith.merger import FastMerger
-from toksmith.pretokenizer import count_tokens_single
+from toksmith.pretokenizer import count_tokens_multi, count_tokens_single, generate_text_chunks
 
 T = TypeVar('T')
 
@@ -151,6 +152,76 @@ class Tokenizer:
     merger = Merger(pretokens)
     ix = 256
     num_iters = vocab_size - min_size  # keep vocab space for special tokens
+    for _ in range(num_iters):
+      top_pair = merger.step(ix)
+      if top_pair is None:
+        logger.debug(f'Early stop at {ix=}, no more pairs to merge!')
+      self.merges.append(top_pair)
+      self.vocab[ix] = self.vocab[top_pair[0]] + self.vocab[top_pair[1]]
+      if verbose:
+        logger.debug(
+          'Merged %d: %r + %d: %r -> %d: %r',
+          top_pair[0],
+          self.vocab[top_pair[0]],
+          top_pair[1],
+          self.vocab[top_pair[1]],
+          ix,
+          self.vocab[ix],
+        )
+      # increment index
+      ix += 1
+    # finished training, let't add special tokens to vocab
+    for i, s_tok in enumerate(special_tokens, ix):
+      self.vocab[i] = bytes(s_tok, encoding='utf-8')
+
+  def train_from_file(
+    self,
+    file_path: str,
+    vocab_size: int,
+    special_tokens: list[str],
+    verbose: bool = False,
+  ) -> None:
+    """
+    Same training routine but it trains from file and fast by default
+
+    Any existing merges or vocab entries beyond the initial 256 byte-vocab
+    will be cleared before training begins.
+
+    Note: special token/tokens are required for this code to run fast, as we
+    use it for splitting the text before pre-tokenization. Without special tokens
+    to split by, it will run the same as `train` using fast merger
+
+    Note: special token occurrences will be stripped off from the text before
+    training
+
+    Args:
+        file_path (str): path to utf-8 encoded text file
+        vocab_size (int): total size after training (== 256 + #merges + #special_tokens)
+        special_tokens (list[str]): list of special tokens, i.e. <|endoftext|>
+
+    Raises:
+        ValueError: if vocab_size < # init bytes + # special tokens
+    """
+    # ensure clean state before training
+    self._reset_state()
+    # check correct arguments
+    min_size = 256 + len(special_tokens)
+    if vocab_size < min_size:
+      raise ValueError(f'vocab_size must be >= {min_size}')
+    if not special_tokens:
+      raise ValueError('at least one special token required')
+    # setup stage
+    # join and create regex pattern
+    delim = '|'.join(map(re.escape, special_tokens))
+    delim = f'(?:{delim})+'
+    # Pre-tokenization
+    chunk_gen = generate_text_chunks(file_path, delim)
+    pretokens = count_tokens_multi(chunk_gen, n_proc=multiprocessing.cpu_count(), n_chunks=10)
+    # Instantiate merger, next index and number of iterations
+    merger = FastMerger(pretokens)
+    ix = 256
+    num_iters = vocab_size - min_size  # keep vocab space for special tokens
+    # training stage
     for _ in range(num_iters):
       top_pair = merger.step(ix)
       if top_pair is None:
