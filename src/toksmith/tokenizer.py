@@ -141,11 +141,9 @@ class Tokenizer:
     if special_tokens:
       delim = '|'.join(map(re.escape, special_tokens))
       # we strip off special tokens and join back right away
-      # we substitute special token with one white space
-      # to ensure we dont accidentally smash tokens together
-      # might add multiprocessing for large texts and do _pretoken_count
-      # in parallel
-      text = re.sub(f'(?:{delim})+', ' ', text)
+      # Note: it can accidentally smash tokens together, if two
+      # parts only separated by special token
+      text = re.sub(f'(?:{delim})+', '', text)
     pretokens = count_tokens_single(text)
     Merger = BasicMerger
     if use_fast_merge:
