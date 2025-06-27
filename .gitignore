@@ -16,3 +16,5 @@ wheels/
 .coverage*
 # scalene profiles
 profile*
+# benchmark results
+bench*.json
