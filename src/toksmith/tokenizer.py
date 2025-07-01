@@ -215,8 +215,8 @@ class Tokenizer:
     delim = '|'.join(map(re.escape, special_tokens))
     delim = f'(?:{delim})+'
     # Pre-tokenization
-    chunk_gen = generate_text_chunks(file_path, delim)
-    pretokens = count_tokens_multi(chunk_gen, n_proc=multiprocessing.cpu_count(), n_chunks=10)
+    chunk_gen = generate_text_chunks(file_path, delim, chunk_size=4096, overlap_size=len(delim) + 64)
+    pretokens = count_tokens_multi(chunk_gen, n_proc=multiprocessing.cpu_count(), n_chunks=100)
     # Instantiate merger, next index and number of iterations
     merger = FastMerger(pretokens)
     ix = 256
