@@ -133,12 +133,20 @@ def run(args: argparse.Namespace) -> int:
 
   # Read and train
   tok = Tokenizer()
-  tok.train_from_file(
-    file_path=input_path,
-    vocab_size=args.vocab_size,
-    special_tokens=args.special_tokens,
-    verbose=(args.verbose >= 2),
-  )
+  if args.special_tokens:  # optimized impl as we can split by special token/s
+    tok.train_from_file(
+      file_path=input_path,
+      vocab_size=args.vocab_size,
+      special_tokens=args.special_tokens,
+      verbose=(args.verbose >= 2),
+    )
+  else:  # no parallel pre-tokenization, sorry
+    tok.train(
+      text=input_path.read_text('utf-8'),
+      vocab_size=args.vocab_size,
+      special_tokens=args.special_tokens,
+      verbose=(args.verbose >= 2),
+    )
   # Save
   out_path = tok.save_state(prefix_name, output_dir)
   logging.info('Saved tokenizer state to %r', str(out_path))
