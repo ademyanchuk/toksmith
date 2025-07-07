@@ -6,6 +6,7 @@ import multiprocessing
 import os
 import tempfile
 from collections import Counter
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Optional, Sequence, Tuple, TypeVar
 
@@ -47,6 +48,89 @@ def _merge(seq: Sequence[T], pair: Tuple[T, T], new_ix: T) -> Tuple[T, ...]:
       new_seq.append(seq[i])  # only current position
       i += 1
   return tuple(new_seq)
+
+
+## encode helpers ===============================
+
+
+def get_lowest_rank_pair(
+  pretoken: tuple[int, ...],
+  pair_to_idx: dict[tuple[int, int], int],
+) -> Optional[tuple[tuple[int, int], int]]:
+  """Scans pretoken for the pair which exist in `pair_to_idx`
+  and has lowest index, if none found returns None
+
+  Args:
+      pretoken (tuple[int]): sequence of integers
+      pair_to_idx (dict[tuple[int, int], int]): map of the pair to index
+      (it is merges converted to dict)
+
+  Returns:
+      Optional[tuple[tuple[int, int], int]]: lowest rank (pair, ix) or None
+  """
+  result = None
+  for pair in zip(pretoken, pretoken[1:]):
+    ix = pair_to_idx.get(pair)
+    if ix is not None:
+      if result is None or result[1] > ix:
+        result = (pair, ix)
+  return result
+
+
+def encode_pretoken(
+  pretoken: tuple[int, ...],
+  pair_to_idx: dict[tuple[int, int], int],
+) -> tuple[int, ...]:
+  """Encodes single pretoken by consecutively merging pairs
+  of tokens (if they are also in `pair_to_idx`). Merges occur
+  in the same relative order as they did during BPE training
+
+  Args:
+      pretoken (tuple[int]): sequence of token ids
+      pair_to_idx (dict[tuple[int, int], int]): maps pair of tokens ids
+      to their corresponding merge id
+
+  Returns:
+      tuple[int]: encoded pretoken
+  """
+  # do we have a pair to merge
+  pair_and_id = get_lowest_rank_pair(pretoken, pair_to_idx)
+  # iterate while we have one
+  while pair_and_id is not None:
+    pair, idx = pair_and_id  # unpack
+    pretoken = _merge(pretoken, pair, idx)  # we have pair to merge
+    pair_and_id = get_lowest_rank_pair(pretoken, pair_to_idx)  # now check for a new pair to merge
+  # encoded (if found any pair to merge) or the same
+  return pretoken
+
+
+def _encode_iterable(
+  pretokenized_text: Iterable[str],
+  pair_to_idx: dict[tuple[int, ...], int],
+  special: dict[str, int],
+) -> list[int]:
+  """Applies encoding to sequence of strings `pretokenized_text`.
+  Checks if element is special token first and maps directly to
+  its token id. If not, performs proper encoding via iterative merging.
+
+  Args:
+      pretokenized_text (Iterable[str]): sequence of strings built with
+      pre-tokenization
+      pair_to_idx (dict[tuple[int, ...], int]): mapping of pair to it's
+      corresponding merge idx
+      special (dict[str, int]): mapping of special token to its token id
+
+  Returns:
+      list[int]: encoded `pretokenized_text`
+  """
+  encoded_text = []
+  for s in pretokenized_text:
+    if s in special:
+      encoded_text.append(special[s])
+    else:
+      pretoken = tuple(bytes(s, encoding='utf-8'))
+      encoded_text.extend(encode_pretoken(pretoken, pair_to_idx))
+  return encoded_text
 
 
 # tokenizer code ================================
