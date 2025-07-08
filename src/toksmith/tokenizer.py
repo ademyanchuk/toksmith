@@ -13,7 +13,7 @@ from typing import Optional, Sequence, Tuple, TypeVar
 import regex as re
 
 from toksmith.merger import FastMerger
-from toksmith.pretokenizer import count_tokens_multi, count_tokens_single, generate_text_chunks
+from toksmith.pretokenizer import TOKEN_RE, count_tokens_multi, count_tokens_single, generate_text_chunks
 
 T = TypeVar('T')
 
@@ -131,6 +131,36 @@ def _encode_iterable(
       pretoken = tuple(bytes(s, encoding='utf-8'))
       encoded_text.extend(encode_pretoken(pretoken, pair_to_idx))
   return encoded_text
+
+
+class Encoder:
+  """
+  Helper class wrapping encoding logic. It supposed to be
+  the part of Tokenizer and tokenizer is in charge of
+  instantiating and initializing encoder
+  """
+
+  def __init__(
+    self,
+    pair_to_index: dict[tuple[int, int], int],
+    special: dict[str, int],
+  ) -> None:
+    """Initialize encoder state.
+
+    Args:
+        pair_to_index (dict[tuple[int, int], int]): merged pair to its
+        index mapping (as in Tokenizer merges)
+        special (dict[str, int]): mapping of special token to its index
+        (as in Tokenizer vocab)
+    """
+    self.pair_to_index = pair_to_index
+    self.special = special
+
+    self.token_re = TOKEN_RE
+    self.special_re = None
+    if special:
+      special_pat = '|'.join(re.escape(tok) for tok in special)
+      self.special_re = re.compile(rf'(?:{special_pat})')
 
 
 # tokenizer code ================================
