@@ -6,7 +6,7 @@ import multiprocessing
 import os
 import tempfile
 from collections import Counter
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
 from pathlib import Path
 from typing import Optional, Sequence, Tuple, TypeVar
 
@@ -161,6 +161,28 @@ class Encoder:
     if special:
       special_pat = '|'.join(re.escape(tok) for tok in special)
       self.special_re = re.compile(rf'(?:{special_pat})')
+
+  def _generate_tokens(self, text: str) -> Iterator[str]:
+    """Produces generator of tokens to be encoded, including
+    special tokens, if `special_re` is not None.
+
+    Args:
+        text (str): source for token generation
+
+    Yields:
+        Iterator[str]: tokens captured by special or gpt2 regex pattern/s
+    """
+    start = 0
+    if self.special_re is not None:
+      for sm in self.special_re.finditer(text):
+        end = sm.start()
+        for tm in self.token_re.finditer(text[start:end]):
+          yield tm.group()
+        start = sm.end()
+        yield sm.group()
+    # leftover or full text if special pattern is None
+    for tm in self.token_re.finditer(text[start:]):
+      yield tm.group()
 
 
 # tokenizer code ================================

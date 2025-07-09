@@ -1,6 +1,6 @@
 import pytest
 
-from toksmith.tokenizer import _encode_iterable, encode_pretoken, get_lowest_rank_pair
+from toksmith.tokenizer import Encoder, _encode_iterable, encode_pretoken, get_lowest_rank_pair
 
 
 # test function to find a proper pair to merge
@@ -51,3 +51,18 @@ def test_encode_pretoken(pretoken, pair_to_idx, want):
 def test_encode_iterable_private(pretok_text, pair_to_idx, special, want):
   got = _encode_iterable(pretok_text, pair_to_idx, special)
   assert got == want
+
+
+# test token generator function
+def test_generate_tokens_with_specials():
+  """Test if we yield correct tokens in correct order"""
+  enc = Encoder({}, special={'<|endoftext|>': 777, '<|endoffile|>': 888})
+  example = 'Hello <|endoftext|><|endoffile|> 🙂'
+  assert list(enc._generate_tokens(example)) == ['Hello', ' ', '<|endoftext|>', '<|endoffile|>', ' 🙂']
+
+
+def test_generate_tokens_no_specials():
+  """Test if we yield correct tokens in correct order (no specials)"""
+  enc = Encoder({}, special={})
+  example = 'Hello <|endoftext|> 🙂'
+  assert list(enc._generate_tokens(example)) == ['Hello', ' <|', 'endoftext', '|>', ' 🙂']
