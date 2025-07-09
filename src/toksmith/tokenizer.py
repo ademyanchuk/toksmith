@@ -184,6 +184,18 @@ class Encoder:
     for tm in self.token_re.finditer(text[start:]):
       yield tm.group()
 
+  def encode(self, text: str) -> list[int]:
+    """bpe encode unicode text
+
+    Args:
+        text (str): text to encode
+
+    Returns:
+        list[int]: list of (encoded) token ids
+    """
+    tok_gen = self._generate_tokens(text)
+    return _encode_iterable(tok_gen, self.pair_to_index, self.special)
+
 
 # tokenizer code ================================
 logger = logging.getLogger(__name__)

@@ -66,3 +66,15 @@ def test_generate_tokens_no_specials():
   enc = Encoder({}, special={})
   example = 'Hello <|endoftext|> 🙂'
   assert list(enc._generate_tokens(example)) == ['Hello', ' <|', 'endoftext', '|>', ' 🙂']
+
+
+# test end-to-end encode
+def test_encode():
+  """Test full encoding pipeline"""
+  text = 'abc bcd<|endoffile|> '
+  # (a, b) -> 256, (b, c) -> 257, (' ', 'bc') -> 258
+  merges = {(97, 98): 256, (98, 99): 257, (32, 257): 258}
+  special = {'<|endoffile|>': 777}
+  # encode -> [('ab')=256, ('c')=99, (' bc')=258, ('d')=100, (special)=777, (' ')=32]
+  enc = Encoder(merges, special)
+  assert enc.encode(text) == [256, 99, 258, 100, 777, 32]
